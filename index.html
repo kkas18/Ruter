@@ -675,6 +675,7 @@ const icon=(name,size=18,sw=2)=>`<svg width="${size}" height="${size}" viewBox="
 const API={
   jp:'https://api.entur.io/journey-planner/v3/graphql',
   geocoder:'https://api.entur.io/geocoder/v3/autocomplete',
+  reverse:'https://api.entur.io/geocoder/v3/reverse',
   vm:'https://api.entur.io/realtime/v1/rest/vm',
   sx:'https://api.entur.io/realtime/v1/rest/sx',
   client:'nikola-reis-pwa'
@@ -794,15 +795,12 @@ async function gql(query,variables={}){
     throw e;
   }
 }
-const Q_NEAREST=`query($lat:Float!,$lon:Float!,$d:Int!){
-  nearest(latitude:$lat,longitude:$lon,maximumDistance:$d,maximumResults:12,
-          filterByPlaceTypes:[stopPlace],multiModalMode:parent){
-    edges{node{distance place{... on StopPlace{id name latitude longitude}}}}}}`;
-const Q_DEP=`query($id:String!,$n:Int!){stopPlace(id:$id){id name latitude longitude
-  quays{id name publicCode estimatedCalls(numberOfDepartures:$n,arrivalDeparture:departures){
-    realtime aimedDepartureTime expectedDepartureTime cancelled
+const Q_DEP=`query($id:String!,$n:Int!){stopPlace(id:$id){id name
+  estimatedCalls(numberOfDepartures:$n){
+    realtime aimedDepartureTime expectedDepartureTime forBoarding
     destinationDisplay{frontText}
-    serviceJourney{line{id publicCode privateCode transportMode}}}}}}`;
+    quay{publicCode}
+    serviceJourney{journeyPattern{line{publicCode transportMode}}}}}}`;
 const Q_AUTO=`query($q:String!){
   autocomplete(queryText:$q,layers:[stopPlace],size:8){
     id name locality layer latitude longitude}}`;
@@ -1035,31 +1033,47 @@ function geoFallback(){
 }
 
 /* ---------- Nærmeste holdeplasser ---------- */
+let nearbyVersion=0;
 async function loadNearby(lat,lon){
+  const version=++nearbyVersion;
   state.lastNearby=[lat,lon];
   const pinned=state.stops.filter(s=>s.pinned);
   try{
-    const d=await gql(Q_NEAREST,{lat,lon,d:2500});
-    state.stops=[...pinned,...(d.nearest?.edges||[]).map(e=>({id:e.node.place.id,name:e.node.place.name,
-      lat:e.node.place.latitude,lon:e.node.place.longitude,distance:Math.round(e.node.distance),deps:null}))]
+    const url=`${API.reverse}?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&radius=2.5&limit=16&layers=stopPlace&lang=no`;
+    const r=await fetchWithTimeout(url,{headers:{'ET-Client-Name':API.client}},15000);
+    if(!r.ok)throw new Error(`Enturs stedsøk svarte ${r.status}`);
+    const data=await r.json();
+    if(version!==nearbyVersion)return;
+    const found=(data.features||[]).filter(f=>f.properties?.id?.startsWith('NSR:StopPlace:')&&
+      f.geometry?.coordinates?.length>=2).map(f=>{
+        const [stopLon,stopLat]=f.geometry.coordinates;
+        const distance=Number.isFinite(+f.properties.distance)?Math.round(+f.properties.distance*1000):
+          Math.round(geoDist([lat,lon],[stopLat,stopLon]));
+        return{id:f.properties.id,name:f.properties.names?.default||f.properties.names?.display||'Holdeplass',
+          lat:stopLat,lon:stopLon,distance,deps:null};
+      }).filter(s=>Number.isFinite(s.distance)&&s.distance<=2500);
+    state.stops=[...pinned,...found]
       .filter((s,i,arr)=>arr.findIndex(x=>x.id===s.id)===i)
-      .sort((a,b)=>(a.distance??-1)-(b.distance??-1)).slice(0,10);
+      .sort((a,b)=>(a.distance??Infinity)-(b.distance??Infinity)).slice(0,10);
+    setNetworkState(true);
     applyStops();renderSheet();renderDepView();
-    await loadAllDeps();
+    if(found.length||pinned.length)await loadAllDeps();
+    else errHTML('Fant ingen holdeplasser innen 2,5 km. Søk etter et stoppested eller prøv igjen.',()=>loadNearby(lat,lon));
   }catch(e){
+    if(version!==nearbyVersion)return;
     const cache=loadJSON('reisDepCache',null);
     if(cache&&cache.stops){
       state.stops=[...pinned,...cache.stops.filter(c=>!pinned.some(p=>p.id===c.id))]
         .map(s=>({...s,depsStale:true}));
       showOfflineBar(cache.t);applyStops();renderSheet();renderDepView();
     }else{
-      errHTML('Kunne ikke hente holdeplasser. Sjekk nettverket.',()=>loadNearby(lat,lon));
+      errHTML(`Kunne ikke hente holdeplasser: ${e.message||'ukjent feil'}`,()=>loadNearby(lat,lon));
     }
   }
 }
 function showOfflineBar(t){
   const bar=$('#offlineBar');
-  bar.innerHTML=`${icon('warning',15)} Frakoblet – viser data fra ${new Date(t).toLocaleTimeString('nb-NO')}`;
+  bar.innerHTML=`${icon('warning',15)} Viser lagrede avganger fra ${new Date(t).toLocaleTimeString('nb-NO')}`;
   bar.hidden=false;
 }
 function errHTML(msg,retry){
@@ -1085,34 +1099,35 @@ function renderStopsOnMap(){
 async function fetchStopDeps(s){
   const d=await gql(Q_DEP,{id:s.id,n:6});
   const rows=[];const now=Date.now()-60000;
-  const quays=(d.stopPlace&&d.stopPlace.quays)||[];
-  quays.slice(0,8).forEach(q=>{(q.estimatedCalls||[]).forEach(c=>{
-    if(c.cancelled)return;
+  const calls=d.stopPlace?.estimatedCalls||[];
+  calls.forEach(c=>{
+    if(c.forBoarding===false)return;
     const exp=new Date(c.expectedDepartureTime).getTime();
     if(!Number.isFinite(exp)||exp<now)return;
-    const line=(c.serviceJourney&&c.serviceJourney.line)||{};
+    const line=c.serviceJourney?.journeyPattern?.line||{};
     rows.push({dest:(c.destinationDisplay&&c.destinationDisplay.frontText)||'—',
-      pub:line.publicCode||line.privateCode||'?',
+      pub:line.publicCode||'?',
       mode:line.transportMode||'bus',
-      exp,aimed:new Date(c.aimedDepartureTime).getTime(),rt:!!c.realtime,quay:q.publicCode});
-  });});
+      exp,aimed:new Date(c.aimedDepartureTime).getTime(),rt:!!c.realtime,quay:c.quay?.publicCode});
+  });
   return rows.sort((a,b)=>a.exp-b.exp).slice(0,6);
 }
 async function loadAllDeps(){
   const all=getAllStops();
   if(!all.length)return;
   $('#refreshBtn').classList.add('spin');
-  let failed=0;
+  let failed=0,firstError='';
   const saved=loadJSON('reisDepCache',null)?.stops||[];
   await Promise.all(all.map(async s=>{try{s.deps=await fetchStopDeps(s);s.depsStale=false;}
-    catch(e){failed++;s.deps=s.deps||saved.find(c=>c.id===s.id)?.deps||[];s.depsStale=true;}}));
+    catch(e){failed++;firstError=firstError||e.message||'ukjent feil';
+      s.deps=s.deps||saved.find(c=>c.id===s.id)?.deps||[];s.depsStale=true;}}));
   $('#refreshBtn').classList.remove('spin');
   if(!failed){
     const cache={t:Date.now(),stops:all.map(s=>({id:s.id,name:s.name,lat:s.lat,lon:s.lon,distance:s.distance,deps:s.deps||[]}))};
     saveJSON('reisDepCache',cache);
   }
   $('#offlineBar').hidden=!failed;
-  if(failed){$('#offlineBar').textContent='Noen avganger kunne ikke oppdateres. Lagrede avganger vises der de finnes.';}
+  if(failed){$('#offlineBar').textContent=`${failed===all.length?'Avganger kunne ikke oppdateres':'Noen avganger kunne ikke oppdateres'}: ${firstError}. Lagrede data vises der de finnes.`;}
   $('#updated').textContent=(failed?'Sist forsøkt ':'Oppdatert ')+new Date().toLocaleTimeString('nb-NO');
   renderDepView();renderSheet();
 }
@@ -1152,7 +1167,7 @@ function renderDepView(){
     if(!s.deps)body='<div class="skel"></div><div class="skel"></div><div class="skel" style="width:60%"></div>';
     else{
       const rows=s.deps.filter(r=>state.activeModes.has(r.mode)&&r.exp>Date.now()-60000).map(r=>rowHtml(s,r)).join('');
-      body=rows||'<div class="dep-row" style="grid-template-columns:1fr;color:var(--ink-3)">Ingen avganger med valgte filtre</div>';
+      body=rows||`<div class="dep-row" style="grid-template-columns:1fr;color:var(--ink-3)">${s.depsStale?'Avganger utilgjengelige akkurat nå':'Ingen avganger med valgte filtre'}</div>`;
     }
     return`<article class="stop-card" id="card-${i}" style="animation-delay:${i*55}ms">
       <div class="stop-head" data-open="${esc(s.id)}">
