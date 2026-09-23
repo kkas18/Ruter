@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#0A2145">
+<meta name="theme-color" content="#193642">
 <meta name="description" content="REIS – moderne sanntidsapp for kollektiv i Oslo og Viken. Bygget på åpne data fra Entur.">
 <title>REIS – kollektiv i Oslo</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -344,18 +344,18 @@ input[type=range]{accent-color:var(--primary);width:120px}
 
 /* REIS 2 — helhetlig visuelt system */
 [hidden]{display:none!important}
-:root{--primary:#187D78;--primary-deep:#18363B;--accent:#BA8551;--ok:#25836A;
-  --warn:#A46F36;--warn-bg:#FBF2E5;--danger:#AE5350;--ink:#18343A;--ink-2:#52676A;
-  --ink-3:#64777A;--bg:#F5F5EF;--surface:#FFFEFA;--surface-2:#EEF2ED;--line:#DEE5DF;
-  --scrim:rgba(245,245,239,.96);--shadow:0 8px 28px rgba(21,54,55,.08);
+:root{--primary:#235C70;--primary-deep:#193642;--accent:#B96134;--ok:#207767;
+  --warn:#9A6728;--warn-bg:#FBF1DF;--danger:#B82838;--ink:#182F38;--ink-2:#486069;
+  --ink-3:#60747A;--bg:#F3F6F6;--surface:#FFFFFF;--surface-2:#EAF0F1;--line:#D8E3E5;
+  --scrim:rgba(243,246,246,.96);--shadow:0 8px 26px rgba(25,54,66,.075);
   --disp:system-ui,-apple-system,'Segoe UI',sans-serif;--body:system-ui,-apple-system,'Segoe UI',sans-serif;
   --mono:ui-monospace,'SFMono-Regular',monospace;--tab-h:66px}
-[data-theme="dark"]{--primary:#79C3B8;--primary-deep:#18363B;--accent:#D0A270;--ok:#79C3B8;
-  --warn:#DFB879;--warn-bg:#352B20;--danger:#EB9690;--ink:#F2F5F0;--ink-2:#C5D1CD;
-  --ink-3:#A5B6B1;--bg:#0D1C22;--surface:#192A2E;--surface-2:#23383A;--line:#37504E;
-  --scrim:rgba(13,28,34,.96);--shadow:0 10px 30px rgba(0,0,0,.22)}
+[data-theme="dark"]{--primary:#8DCBD7;--primary-deep:#193642;--accent:#F0AD7C;--ok:#75C5B2;
+  --warn:#E0B77B;--warn-bg:#352D25;--danger:#F2A5AC;--ink:#F3F7F8;--ink-2:#CDDADF;
+  --ink-3:#A9BDC3;--bg:#101C23;--surface:#1B2C34;--surface-2:#293C45;--line:#3B515B;
+  --scrim:rgba(16,28,35,.96);--shadow:0 10px 30px rgba(0,0,0,.22)}
 body{letter-spacing:-.01em}
-#splash{background:radial-gradient(circle at 50% 40%,#2B5959,#11282F 68%)}
+#splash{background:radial-gradient(circle at 50% 40%,#315865,#122932 68%)}
 #splash .s-logo,.logo-mark{background:transparent;box-shadow:none;border-radius:18px}
 #splash .s-logo::after,.logo-mark::after{display:none}
 #splash .s-name,.logo b{letter-spacing:.12em;font-weight:700}
@@ -377,7 +377,7 @@ body{letter-spacing:-.01em}
 .fab,.icon-btn,.refresh{border-radius:15px;box-shadow:var(--shadow)}
 .fabs{bottom:calc(220px + var(--safe));gap:8px}
 .fab{width:46px;height:46px}.chip{padding:8px 13px;min-height:35px;box-shadow:0 3px 10px rgba(18,48,50,.07)}
-.chip.on{background:#18363B;border-color:#18363B}.btn-primary{background:#187D78}.btn-danger{background:#AE5350}
+.chip.on{background:#193642;border-color:#193642}.btn-primary{background:#235C70}.btn-danger{background:#B82838}
 .field input{min-height:48px}.drop button{min-height:48px}.set-row{min-height:64px}.seg button{min-height:34px}
 .ticker{animation:none}.ticker-track{animation:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%}
 .ticker-track span:nth-child(n+2){display:none}.ticker-track span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:16px}
@@ -462,6 +462,45 @@ button:focus-visible,input:focus-visible,select:focus-visible,.sheet-grip:focus-
 .link-row>.lbl{flex:1}
 .back-link{display:block;color:var(--primary);padding:8px 0 18px;font-size:14px;font-weight:700}
 @media(max-width:370px){.route-overview{top:calc(78px + var(--safet));right:12px}.fab-search{font-size:11px}}
+/* Felles rutenett og rolige flater; transportfargene brukes bare der de bærer mening. */
+.panel{max-width:640px;padding-left:16px;padding-right:16px}
+.topbar{padding-left:16px;padding-right:16px}
+.page-title{margin:8px 0 4px;font-size:27px;line-height:1.2}
+.page-sub{margin-bottom:18px}
+.route-box,.stop-card,.trip,.alert-card,.set-group{border-radius:18px;border:1px solid var(--line);box-shadow:var(--shadow)}
+.route-box{padding:16px;margin-bottom:18px}
+.route-box .field{margin-bottom:12px}
+.field input{min-height:52px;border-radius:12px;padding:12px 14px}
+.swap-row{justify-content:center;margin:-4px 0 8px}
+.swap{width:42px;height:42px;border-radius:12px}
+.swap svg{width:19px;height:19px}
+.time-row{margin-top:14px}
+.time-row .seg{min-height:44px}
+.time-row .seg button{min-height:36px}
+.drop{border-radius:14px;max-height:min(44vh,350px)}
+.drop button{padding:10px 14px;line-height:1.3;min-height:56px}
+.drop .place-name{display:block;font-size:14px;font-weight:660;color:var(--ink)}
+.drop small{display:block;margin:3px 0 0;font-size:11px;color:var(--ink-3)}
+.trip{padding:16px;margin-bottom:12px}
+.trip-top{display:grid;grid-template-columns:auto 12px auto 1fr;align-items:baseline;column-gap:6px}
+.trip-top .dur{justify-self:end;text-align:right;margin:0}
+.trip-legs{gap:7px;margin-top:12px}
+.chip.on:not([data-m="all"]){background:var(--mode-color);border-color:var(--mode-color);color:#fff}
+[data-theme="dark"] .chip.on:not([data-m="all"]){background:var(--mode-color);border-color:var(--mode-color);color:#fff}
+[data-theme="dark"] .chip.on[data-m="all"]{background:var(--primary-deep);border-color:var(--primary-deep);color:#fff}
+.set-group{overflow:hidden;margin-bottom:14px}
+.set-row{padding:14px 16px;min-height:66px}
+.set-row .lbl b{font-weight:680}
+.tabbar{left:16px;right:16px;max-width:608px;border-radius:18px}
+.tabbar button{min-height:62px}
+.route-overview,.sheet{left:16px;right:16px}
+.sheet{max-width:608px;margin:0 auto}
+.fab.on{background:var(--primary-deep);border-color:var(--primary-deep)}
+.me-marker .me-wave{border-color:rgba(35,92,112,.7);background:rgba(107,173,187,.15)}
+.me-marker .me-core,.end-marker.from .end-dot{background:#235C70}
+.end-marker.to .end-dot{background:#A94A0B}
+.journey-step.transfer .rail{border-color:#B96134;background:#B96134}
+@media(max-width:390px){.route-box{padding:14px}.trip{padding:14px}.trip-top{font-size:13px}.trip-top .dur{font-size:11px}.tabbar{left:12px;right:12px}}
 </style>
 </head>
 <body data-view="trip">
@@ -559,14 +598,14 @@ button:focus-visible,input:focus-visible,select:focus-visible,.sheet-grip:focus-
     <div class="route-box">
       <div class="field">
         <label for="fromInput">Fra</label>
-        <input id="fromInput" type="text" placeholder="Min posisjon" autocomplete="off">
+        <input id="fromInput" type="text" placeholder="Min posisjon eller adresse" autocomplete="off" aria-autocomplete="list" aria-controls="fromDrop">
         <div class="drop" id="fromDrop" hidden></div>
       </div>
       <div class="swap-row"><button class="swap" id="swapBtn" title="Bytt retning"><svg class="ui-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M7 3v16m0 0-3-3m3 3 3-3M17 21V5m0 0-3 3m3-3 3 3"/></svg>
       </button></div>
       <div class="field">
         <label for="toInput">Til</label>
-        <input id="toInput" type="text" placeholder="Søk etter stoppested…" autocomplete="off">
+        <input id="toInput" type="text" placeholder="Søk etter adresse eller stopp…" autocomplete="off" aria-autocomplete="list" aria-controls="toDrop">
         <div class="drop" id="toDrop" hidden></div>
       </div>
       <div class="time-row">
@@ -713,8 +752,8 @@ const API={
   client:'nikola-reis-pwa'
 };
 const MODES={
-  bus:{n:'Buss',c:'#00913B'}, tram:{n:'Trikk',c:'#0E86C9'}, metro:{n:'T-bane',c:'#1E3FA6'},
-  rail:{n:'Tog',c:'#D5342F'}, water:{n:'Båt',c:'#0FA3B1'}, coach:{n:'Ekspress',c:'#4B5563'},
+  bus:{n:'Buss',c:'#B82838'}, tram:{n:'Trikk',c:'#245CB2'}, metro:{n:'T-bane',c:'#A94A0B'},
+  rail:{n:'Tog',c:'#5747A5'}, water:{n:'Båt',c:'#087D88'}, coach:{n:'Ekspress',c:'#B82838'},
   funicular:{n:'Taubane',c:'#6B7280'}, cableway:{n:'Taubane',c:'#6B7280'}, air:{n:'Fly',c:'#6B7280'}
 };
 const BASEMAPS={
@@ -790,7 +829,7 @@ let mapReady=false;
 function paintTheme(){
   const t=resolveTheme();
   document.documentElement.dataset.theme=t;
-  document.querySelector('meta[name="theme-color"]').content=t==='dark'?'#0D1C22':'#18363B';
+  document.querySelector('meta[name="theme-color"]').content=t==='dark'?'#101C23':'#193642';
   $$('#themeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.t===settings.theme));
   if(mapReady)applyBasemap();
 }
@@ -957,7 +996,7 @@ function updateRadius(){
   if(settings.walkRadius>0){
     const c=state.pos||map.getCenter();
     const m=settings.walkKmh*1000/60*settings.walkRadius;
-    radiusCircle=L.circle(c,{radius:m,color:'#187D78',weight:1.5,dashArray:'6 8',fillOpacity:.05}).addTo(map);
+    radiusCircle=L.circle(c,{radius:m,color:'#235C70',weight:1.5,dashArray:'6 8',fillOpacity:.05}).addTo(map);
   }
 }
 
@@ -975,7 +1014,7 @@ function handlePos(p){
   if(!userMarker){
     userMarker=L.marker([lat,lon],{icon:L.divIcon({className:'',iconSize:[54,54],iconAnchor:[27,27],
       html:'<div class="me-marker"><div class="me-wave"></div><div class="me-direction"></div><div class="me-core"></div><span class="me-label">Du er her</span></div>'}),zIndexOffset:1000}).addTo(map);
-    accCircle=L.circle([lat,lon],{radius:acc||20,color:'#187D78',weight:1,opacity:.35,fillColor:'#79C3B8',fillOpacity:.10,interactive:false}).addTo(map);
+    accCircle=L.circle([lat,lon],{radius:acc||20,color:'#235C70',weight:1,opacity:.35,fillColor:'#8DCBD7',fillOpacity:.10,interactive:false}).addTo(map);
     if(!routeBounds)map.setView([lat,lon],16);
   }else{
     userMarker.setLatLng([lat,lon]);accCircle.setLatLng([lat,lon]).setRadius(acc||20);
@@ -1213,7 +1252,7 @@ function renderChips(){
   const allOn=state.activeModes.size===Object.keys(MODES).length;
   $('#modeChips').innerHTML=`<button class="chip${allOn?' on':''}" data-m="all">Alle</button>`+
     ['bus','tram','metro','rail','water'].map(m=>
-      `<button class="chip${state.activeModes.has(m)?' on':''}" data-m="${m}">${MODES[m].n}</button>`).join('');
+      `<button class="chip${state.activeModes.has(m)?' on':''}" style="--mode-color:${MODES[m].c}" data-m="${m}">${MODES[m].n}</button>`).join('');
   $$('#modeChips .chip').forEach(c=>c.onclick=()=>{buzz(6);
     if(c.dataset.m==='all')state.activeModes=new Set(Object.keys(MODES));
     else{state.activeModes.has(c.dataset.m)?state.activeModes.delete(c.dataset.m):state.activeModes.add(c.dataset.m);
@@ -1264,11 +1303,14 @@ async function refreshVehicles(){
       const next=mc?tagText(mc,'StopPointName'):'';
       const destn=tagText(gj,'DestinationName');
       seenNow.add(id);
-      const html=`<div class="veh" style="transform:rotate(${bearing}deg)"><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M14 2 25 25 14 19 3 25Z" fill="#187D78" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/><circle cx="14" cy="12" r="2.6" fill="#F9F6EC"/></svg></div>`;
+      const vehicleMode=tagText(gj,'VehicleMode').toLowerCase();
+      const vehicleColor=(MODES[vehicleMode]||{c:'#235C70'}).c;
+      const html=`<div class="veh" style="transform:rotate(${bearing}deg)"><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M14 2 25 25 14 19 3 25Z" fill="${vehicleColor}" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/><circle cx="14" cy="12" r="2.6" fill="#fff"/></svg></div>`;
       let mk=vehicleMarkers.get(id);
       if(mk){
         tweenMarker(mk,{lat,lng:lon});
-        const el=mk.getElement();if(el&&el.firstChild)el.firstChild.style.transform=`rotate(${bearing}deg)`;
+        const el=mk.getElement();if(el&&el.firstChild){el.firstChild.style.transform=`rotate(${bearing}deg)`;
+          const path=el.querySelector('path');if(path)path.setAttribute('fill',vehicleColor);}
         mk._meta={line,next,destn,t:Date.now()};
       }else{
         mk=L.marker([lat,lon],{icon:L.divIcon({className:'',iconSize:[28,28],iconAnchor:[14,14],html}),zIndexOffset:500}).addTo(vehiclesLayer);
@@ -1419,32 +1461,57 @@ function renderSheet(){
 }
 
 /* ---------- Stedssøk ---------- */
+const PLACE_TYPES={stopPlace:'Holdeplass',groupOfStopPlaces:'Knutepunkt',address:'Adresse',street:'Gate',poi:'Sted',place:'Område'};
+function placeFromFeature(f){
+  const p=f?.properties,coordinates=f?.geometry?.coordinates;
+  if(!p||!Array.isArray(coordinates)||!Number.isFinite(+coordinates[0])||!Number.isFinite(+coordinates[1]))return null;
+  const name=p.names?.default||p.names?.display||[p.address?.streetName,p.address?.houseNumber].filter(Boolean).join(' ');
+  if(!name)return null;
+  return{id:p.id||'',name,locality:p.address?.locality||'',kind:PLACE_TYPES[p.layer]||'Sted',
+    lat:+coordinates[1],lon:+coordinates[0]};
+}
 async function searchStops(q){
-  try{
-    const r=await fetchWithTimeout(`${API.geocoder}?q=${encodeURIComponent(q)}&limit=8&layers=stopPlace&lang=no`,
-      {headers:{'ET-Client-Name':API.client}},12000);
+  // Separate address request ensures a street name works even without a house number.
+  const focus=state.pos||OSLO;
+  const common=`q=${encodeURIComponent(q)}&limit=16&lang=no&lat=${focus[0]}&lon=${focus[1]}&radius=100`;
+  const searches=[
+    `${API.geocoder}?${common}&layers=stopPlace,groupOfStopPlaces,street,address,poi,place`,
+    `${API.geocoder}?${common}&layers=street,address&sources=kartverket-matrikkelenadresse`
+  ];
+  const responses=await Promise.allSettled(searches.map(async url=>{
+    const r=await fetchWithTimeout(url,{headers:{'ET-Client-Name':API.client}},12000);
     if(!r.ok)throw new Error('Stedssøk svarte '+r.status);
+    return(await r.json()).features||[];
+  }));
+  const found=responses.some(r=>r.status==='fulfilled');
+  if(found){
     setNetworkState(true);
-    const j=await r.json();
-    const fs=(j.features||[]).filter(f=>f.geometry&&f.properties)
-      .map(f=>({id:f.properties.id,name:f.properties.names?.default||f.properties.names?.display||'',
-        locality:f.properties.address?.locality||'',
-        lat:f.geometry.coordinates[1],lon:f.geometry.coordinates[0]}));
-    if(fs.length)return fs;
-  }catch(e){}
+    const unique=new Map();
+    responses.forEach(r=>{if(r.status==='fulfilled')r.value.map(placeFromFeature).filter(Boolean).forEach(f=>{
+      const key=f.id||`${f.name.toLocaleLowerCase('nb-NO')}:${f.lat.toFixed(5)}:${f.lon.toFixed(5)}`;
+      if(!unique.has(key))unique.set(key,f);
+    });});
+    if(unique.size){
+      const needle=q.toLocaleLowerCase('nb-NO').trim();
+      const score=f=>{const name=f.name.toLocaleLowerCase('nb-NO');
+        return(name===needle?100:name.startsWith(needle)?45:name.includes(needle)?20:0)+
+          (f.kind==='Gate'||f.kind==='Adresse'?16:0);};
+      return[...unique.values()].sort((a,b)=>score(b)-score(a)).slice(0,16);
+    }
+  }
   try{
     const d=await gql(Q_AUTO,{q});
     const list=(d.autocomplete||[]).filter(f=>f.latitude!=null&&f.longitude!=null)
-      .map(f=>({id:f.id,name:f.name||'',locality:f.locality||'',lat:f.latitude,lon:f.longitude}));
+      .map(f=>({id:f.id,name:f.name||'',locality:f.locality||'',kind:'Holdeplass',lat:f.latitude,lon:f.longitude}));
     if(list.length)return list;
   }catch(e){}
   const cached=loadJSON('reisDepCache',null)?.stops||[];
   const local=[...favs,...recentTargets,...cached].filter((f,i,a)=>f?.name&&f.lat!=null&&f.lon!=null&&
     f.name.toLocaleLowerCase('nb-NO').includes(q.toLocaleLowerCase('nb-NO'))&&
     a.findIndex(x=>x?.name===f.name&&x?.lat===f.lat&&x?.lon===f.lon)===i)
-    .slice(0,8).map(f=>({id:f.id||'',name:f.name,locality:'Lagret på enheten',lat:f.lat,lon:f.lon}));
+    .slice(0,8).map(f=>({id:f.id||'',name:f.name,locality:'Lagret på enheten',kind:'Nylig brukt',lat:f.lat,lon:f.lon}));
   if(local.length)return local;
-  return null;
+  return found?[]:null;
 }
 function bindAuto(input,drop,onPick){
   let acDebounce=null;
@@ -1462,10 +1529,11 @@ function bindAuto(input,drop,onPick){
       const fs=await searchStops(q);
       if(input.value.trim()!==q)return; // utdatert svar
       if(!fs||!fs.length){
-        drop.innerHTML='<button disabled>Ingen treff, eller søket feilet – sjekk nettverket</button>';
+        drop.innerHTML=fs?'<button disabled>Ingen treff. Prøv gatenavn, husnummer eller et sted i nærheten.</button>':
+          '<button disabled>Søket er utilgjengelig akkurat nå. Sjekk tilkoblingen.</button>';
         return;
       }
-      drop.innerHTML=fs.map((f,i)=>`<button data-i="${i}">${esc(f.name)}<small>${esc(f.locality)}</small></button>`).join('');
+      drop.innerHTML=fs.map((f,i)=>`<button type="button" data-i="${i}"><span class="place-name">${esc(f.name)}</span><small>${esc([f.kind,f.locality].filter(Boolean).join(' · '))}</small></button>`).join('');
       drop.querySelectorAll('button').forEach(b=>b.onclick=()=>{buzz(6);
         const f=fs[+b.dataset.i];input.value=f.name;drop.hidden=true;onPick(f);});
     },300);
@@ -1594,7 +1662,7 @@ function drawRoute(p){
     try{pts=decodePoly(l.points);}catch(e){return;}
     if(pts.length<2||pts.some(x=>!Number.isFinite(x[0])||!Number.isFinite(x[1])))return;
     const walk=l.mode==='foot';
-    const stroke=walk?'#B88758':'#187D78';
+    const stroke=walk?'#7B8790':(MODES[l.mode]||{c:'#235C70'}).c;
     routeLayer.addLayer(L.polyline(pts,{color:'#fff',weight:walk?8:11,opacity:.94,interactive:false,lineCap:'round',lineJoin:'round'}));
     const line=L.polyline(pts,{color:stroke,weight:walk?4:6,opacity:1,
       dashArray:walk?'3 9':null,lineCap:'round',lineJoin:'round'}).addTo(routeLayer);
@@ -1621,7 +1689,7 @@ function drawRoute(p){
     bounds.push([lat,lon]);
   };
   rides.forEach((l,i)=>{
-    const color=(MODES[l.mode]||{c:'#187D78'}).c;
+    const color=(MODES[l.mode]||{c:'#235C70'}).c;
     const from=l.fromPlace?.name||'Påstigning';
     const to=l.toPlace?.name||'Avstigning';
     addRouteStop(l.fromPlace?.quay,from,l.expectedStartTime,color,i?'mellomstopp':'påstigning');
@@ -1634,7 +1702,7 @@ function drawRoute(p){
       .map(q=>[+q?.latitude,+q?.longitude]).filter(([lat,lon])=>Number.isFinite(lat)&&Number.isFinite(lon)&&lat&&lon);
     if(coordinates.length>=2){
       routeLayer.addLayer(L.polyline(coordinates,{color:'#fff',weight:8,opacity:.85,interactive:false}));
-      routeLayer.addLayer(L.polyline(coordinates,{color:(MODES[l.mode]||{c:'#187D78'}).c,weight:4,dashArray:'7 9',opacity:.95,interactive:false}));
+      routeLayer.addLayer(L.polyline(coordinates,{color:(MODES[l.mode]||{c:'#235C70'}).c,weight:4,dashArray:'7 9',opacity:.95,interactive:false}));
     }
   });
   const start=state.fromSel?[state.fromSel.lat,state.fromSel.lon]:state.pos;
