@@ -432,9 +432,39 @@ button:focus-visible,input:focus-visible,select:focus-visible,.sheet-grip:focus-
 .trip-intro p{font-size:13px;color:var(--ink-2);font-weight:600;line-height:1.45}
 [data-theme="dark"] .trip-intro img{border-radius:0 0 16px 16px}
 @media(max-width:370px){.route-overview{right:12px;top:calc(153px + var(--safet))}.route-overview .route-text{font-size:10px}}
+/* Klar reisehierarki: samme horisontale rytme i alle fire faner. */
+.tabbar{justify-content:space-around}
+.tabbar button{flex:1;min-width:0}
+.mode-chips{position:static;max-width:none;margin:0 0 16px;padding:2px 0 8px;gap:8px}
+.mode-chips .chip{box-shadow:none;min-height:40px;padding:9px 15px}
+.route-overview{top:calc(78px + var(--safet));right:14px;left:14px;max-width:580px;margin:0 auto;min-height:66px;padding:11px 12px 11px 16px;border-radius:18px;gap:12px}
+.route-overview .route-text{font-size:12px;line-height:1.4}
+.route-overview .route-text b{font-size:15px;margin-bottom:2px}
+.route-overview button{min-height:42px;font-size:12px;padding:9px 14px}
+.fabs{right:14px;bottom:calc(var(--tab-h) + 38px + var(--safe));align-items:flex-end;gap:10px}
+[data-route="active"] .fabs{bottom:calc(var(--tab-h) + 151px + var(--safe))}
+.fab{min-width:46px;min-height:46px;border-radius:15px}
+.fab-search{width:auto;display:flex;gap:9px;align-items:center;padding:0 15px;background:var(--primary-deep);border-color:var(--primary-deep);color:#fff;font-size:12px;font-weight:750}
+.fab-search svg{stroke:#fff;flex:none}
+.sheet{height:min(60vh,490px);transform:translateY(calc(100% - 104px));border-radius:22px 22px 16px 16px;bottom:calc(var(--tab-h) + 12px + var(--safe))}
+.sheet-grip{min-height:104px;padding:10px 18px 8px}
+.sheet-head{flex-wrap:wrap;align-items:center;gap:3px 10px}
+.sheet-head h2{font-family:var(--body);font-size:17px;letter-spacing:0;text-transform:none}
+.sheet-head span{font-size:12px}
+.route-stop-dot{width:18px;height:18px;background:var(--stop-color);border:3px solid #fff}
+.route-stop-dot.minor{width:8px;height:8px;border:1.5px solid #fff;box-shadow:0 0 0 1px var(--stop-color)}
+.route-stop-dot.transfer{width:28px;height:28px;background:var(--stop-color);border:3px solid #fff;box-shadow:0 0 0 2px var(--stop-color),0 2px 8px rgba(8,34,36,.3);display:grid;place-items:center}
+.route-stop-dot.transfer span{font-size:12px;font-weight:800;color:#fff;line-height:1}
+[data-route="active"] .me-label,[data-route="active"] .end-label{display:none}
+.entry-count{min-width:23px;height:23px;border-radius:99px;display:grid;place-items:center;background:var(--warn-bg);color:var(--ink);font-size:11px;font-weight:700}
+.entry-count[hidden]{display:none}
+.link-row{width:100%;text-align:left;cursor:pointer}
+.link-row>.lbl{flex:1}
+.back-link{display:block;color:var(--primary);padding:8px 0 18px;font-size:14px;font-weight:700}
+@media(max-width:370px){.route-overview{top:calc(78px + var(--safet));right:12px}.fab-search{font-size:11px}}
 </style>
 </head>
-<body data-view="map">
+<body data-view="trip">
 
 <!-- ===== SPLASH ===== -->
 <div id="splash">
@@ -476,35 +506,26 @@ button:focus-visible,input:focus-visible,select:focus-visible,.sheet-grip:focus-
   Reisesøk og posisjon krever at PWA-en åpnes fra en HTTPS-adresse, eller at Android-appen bygges og installeres. En ZIP-fil er ikke en installert app.
 </div>
 <!-- ===== KART ===== -->
-<section class="view active" id="view-map" data-view="map">
+<section class="view" id="view-map" data-view="map">
   <div id="map"></div>
   <div class="map-notice" id="mapNotice" hidden role="status"><b>Kartet kan ikke lastes</b>
     Nye kartfliser krever nettilgang. Lagrede avganger kan fortsatt vises under Avganger.
     <button id="retryMapBtn" type="button">Prøv kartet igjen</button>
   </div>
-  <div class="mode-chips" id="modeChips"></div>
   <div class="veh-hint" id="vehHint">Zoom inn for å se kjøretøy live</div>
   <div class="veh-count" id="vehCount" hidden></div>
   <div class="geo-warn" id="geoWarn" hidden></div>
   <div class="route-overview" id="routeOverview" hidden aria-live="polite">
     <div class="route-text" id="routeOverviewText"></div>
-    <button id="routeFocusBtn" type="button" aria-label="Vis hele ruten på kartet">Vis ruten</button>
+    <button id="routeFocusBtn" type="button" aria-label="Vis reisedetaljer og bytter">Detaljer</button>
   </div>
   <div class="fabs">
     <button class="fab on" id="locateBtn" title="Følg meg"><svg class="ui-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>
     </button>
-    <button class="fab" id="searchFab" title="Søk etter sted"><svg class="ui-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
-    </button>
-    <button class="fab" id="layersBtn" title="Kartlag"><svg class="ui-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 10 9 5 9-5M3 18l9 5 9-5"/></svg>
-    </button>
-    <button class="fab" id="zoomInBtn" title="Zoom inn"><svg class="ui-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-    </button>
-    <button class="fab" id="zoomOutBtn" title="Zoom ut"><svg class="ui-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M5 12h14"/></svg>
-    </button>
+    <button class="fab fab-search" id="searchFab" title="Planlegg reise"><svg class="ui-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><span>Planlegg reise</span></button>
   </div>
-  <div class="layers-panel" id="layersPanel" hidden></div>
-  <div class="sheet" id="sheet">
-    <div class="sheet-grip" id="sheetGrip" role="button" tabindex="0" aria-label="Vis eller skjul nærmeste holdeplasser">
+  <div class="sheet" id="sheet" hidden>
+    <div class="sheet-grip" id="sheetGrip" role="button" tabindex="0" aria-label="Vis eller skjul reisedetaljer" aria-expanded="false">
       <div class="sheet-head"><h2>Nærmeste holdeplasser</h2><span id="sheetDist"></span></div>
     </div>
     <div class="sheet-body" id="sheetBody"></div>
@@ -520,6 +541,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,.sheet-grip:focus-
       <button class="refresh" id="refreshBtn" title="Oppdater"><svg class="ui-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 6v5h-5M4 18v-5h5"/><path d="M5.5 9A7 7 0 0 1 18 6l2 5M4 13l2 5a7 7 0 0 0 12.5-3"/></svg>
       </button>
     </div>
+    <div class="mode-chips" id="modeChips" aria-label="Filtrer avganger etter transportmiddel"></div>
     <div class="offline-bar" id="offlineBar" hidden></div>
     <div class="ticker" id="ticker" hidden><div class="ticker-track" id="tickerTrack"></div></div>
     <div class="fav-row" id="favRow"></div>
@@ -530,7 +552,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,.sheet-grip:focus-
 </section>
 
 <!-- ===== REISE ===== -->
-<section class="view" id="view-trip" data-view="trip">
+<section class="view active" id="view-trip" data-view="trip">
   <div class="panel">
     <div class="page-title">Planlegg reisen</div>
     <div class="page-sub">Søk etter steder, eller hold inne på kartet for å velge fra og til.</div>
@@ -568,6 +590,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,.sheet-grip:focus-
 <!-- ===== AVVIK ===== -->
 <section class="view" id="view-alerts" data-view="alerts">
   <div class="panel">
+    <button class="back-link" id="alertsBack" type="button">‹ Mer</button>
     <div class="page-title">Trafikkmeldinger</div>
     <div class="page-sub"><span id="alertsUpdated">Henter…</span>
       <button class="refresh" id="alertsRefresh"><svg class="ui-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 6v5h-5M4 18v-5h5"/><path d="M5.5 9A7 7 0 0 1 18 6l2 5M4 13l2 5a7 7 0 0 0 12.5-3"/></svg></button>
@@ -580,7 +603,17 @@ button:focus-visible,input:focus-visible,select:focus-visible,.sheet-grip:focus-
 <section class="view" id="view-settings" data-view="settings">
   <div class="panel">
     <div class="page-title">Innstillinger</div>
-    <div class="page-sub">Tilpass REIS til din reise</div>
+    <div class="page-sub">Kart, meldinger og personlige valg</div>
+
+    <div class="set-group">
+      <button class="set-row link-row" id="alertsEntry" type="button"><span class="lbl"><b>Trafikkmeldinger</b><small>Se avvik i kollektivtrafikken</small></span><span class="entry-count" id="alertBadge" hidden>0</span><span aria-hidden="true">›</span></button>
+    </div>
+
+    <div class="set-group">
+      <div class="set-row"><div class="lbl"><b>Karttype</b><small>Valgte ruter vises på et rolig standardkart</small></div><select class="sel" id="basemapSelect"><option value="standard">Standard</option><option value="topo">Topografi</option><option value="fly">Flyfoto</option><option value="dark">Mørk</option></select></div>
+      <div class="set-row"><div class="lbl"><b>Holdeplasser på kartet</b></div><label class="switch"><input type="checkbox" id="mapStopsToggle"><span class="tr"></span></label></div>
+      <div class="set-row"><div class="lbl"><b>Sanntidskjøretøy</b></div><label class="switch"><input type="checkbox" id="mapVehiclesToggle"><span class="tr"></span></label></div>
+    </div>
 
     <div class="set-group">
       <div class="set-row">
@@ -634,10 +667,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,.sheet-grip:focus-
 
 <!-- ===== BUNNMENY ===== -->
 <nav class="tabbar">
-  <button class="active" data-go="map"><svg class="ui-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m3 6 6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14m6-12v14"/></svg>Kart</button>
+  <button class="active" data-go="trip"><svg class="ui-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="5" cy="18" r="2"/><circle cx="19" cy="6" r="2"/><path d="M7 18h7a4 4 0 0 0 0-8h-4a4 4 0 0 1 0-8h7"/></svg>Reise</button>
   <button data-go="dep"><svg class="ui-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Avganger</button>
-  <button data-go="trip"><svg class="ui-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="5" cy="18" r="2"/><circle cx="19" cy="6" r="2"/><path d="M7 18h7a4 4 0 0 0 0-8h-4a4 4 0 0 1 0-8h7"/></svg>Reise</button>
-  <button data-go="alerts"><svg class="ui-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 3 3.5 7v5.5c0 4.1 3 7 8.5 8.5 5.5-1.5 8.5-4.4 8.5-8.5V7z"/><path d="M12 8v5m0 3h.01"/></svg>Avvik<span class="tab-badge" id="alertBadge" hidden>0</span></button>
+  <button data-go="map"><svg class="ui-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m3 6 6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14m6-12v14"/></svg>Kart</button>
   <button data-go="settings"><svg class="ui-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="var(--surface)"/><circle cx="16" cy="12" r="2" fill="var(--surface)"/><circle cx="9" cy="18" r="2" fill="var(--surface)"/></svg>Mer</button>
 </nav>
 
@@ -826,29 +858,33 @@ let tileLayer=null,radiusCircle=null;
 const stopsLayer=L.layerGroup().addTo(map);
 const vehiclesLayer=L.layerGroup().addTo(map);
 const routeLayer=L.layerGroup().addTo(map);
+const routeMinorLayer=L.layerGroup().addTo(map);
 let userMarker=null,accCircle=null,fromMarker=null,destMarker=null,routeBounds=null;
+let currentTileKey=null;
 const vehicleMarkers=new Map();
 const mapVisible=()=>$('#view-map').classList.contains('active');
 
 function currentBasemapKey(){
+  if(state.activeTrip)return resolveTheme()==='dark'?'dark':'standard';
   let k=settings.basemap||'standard';
   if(k==='standard'&&resolveTheme()==='dark')k='dark';
   return BASEMAPS[k]?k:'standard';
 }
 function applyBasemap(){
   const k=currentBasemapKey(),bm=BASEMAPS[k];
+  if(tileLayer&&currentTileKey===k)return;
   if(tileLayer)map.removeLayer(tileLayer);
+  currentTileKey=k;
   let errors=0;
   $('#mapNotice').hidden=true;
   tileLayer=L.tileLayer(bm.url,{maxZoom:19,maxNativeZoom:bm.maxZoom||19,attribution:bm.attr})
     .on('tileerror',()=>{if(++errors>=3)$('#mapNotice').hidden=false;})
     .on('tileload',()=>{$('#mapNotice').hidden=true;errors=0;}).addTo(map);
-  $$('#bmGrid button').forEach(b=>b.classList.toggle('on',b.dataset.bm===(settings.basemap||'standard')));
 }
 $('#retryMapBtn').onclick=()=>applyBasemap();
 map.on('dragstart',()=>{if(state.follow){state.follow=false;$('#locateBtn').classList.remove('on');}});
 map.on('moveend',()=>debouncedVehicles());
-map.on('zoomend',()=>updateVehHint());
+map.on('zoomend',()=>{updateVehHint();updateMinorStops();});
 map.on('contextmenu',e=>{
   const ll=e.latlng;
   const popup=L.popup({closeButton:true}).setLatLng(ll).setContent(
@@ -869,8 +905,6 @@ map.on('contextmenu',e=>{
   });
 });
 
-$('#zoomInBtn').onclick=()=>map.zoomIn();
-$('#zoomOutBtn').onclick=()=>map.zoomOut();
 $('#locateBtn').onclick=()=>{buzz(8);
   if(!state.pos){requestGeoOnce();toast('Henter posisjonen din…');return;}
   state.follow=true;$('#locateBtn').classList.add('on');
@@ -890,9 +924,14 @@ function setRouteEndpoints(){
   if(meLabel)meLabel.textContent=state.dest&&!state.fromSel?'Fra · du er her':'Du er her';
 }
 function clearDrawnRoute(){
-  routeLayer.clearLayers();routeBounds=null;
+  routeLayer.clearLayers();routeMinorLayer.clearLayers();routeBounds=null;
   $('#routeOverview').hidden=true;
   state.activeTrip=null;
+  document.body.dataset.route='';
+  sheet.classList.remove('open');
+  grip.setAttribute('aria-expanded','false');
+  $('#sheetBody').dataset.trip='0';
+  applyBasemap();
   applyStops();
   renderSheet();
 }
@@ -900,69 +939,17 @@ function fitWholeRoute(){
   if(!routeBounds)return;
   state.follow=false;$('#locateBtn').classList.remove('on');
   map.invalidateSize();
-  map.fitBounds(routeBounds,{paddingTopLeft:[28,210],paddingBottomRight:[28,205],maxZoom:16,animate:true});
+  map.fitBounds(routeBounds,{paddingTopLeft:[32,165],paddingBottomRight:[32,190],maxZoom:15,animate:true});
 }
-$('#routeFocusBtn').onclick=fitWholeRoute;
+$('#routeFocusBtn').onclick=()=>toggleSheet();
 $('#searchFab').onclick=()=>{buzz(8);switchView('trip');
   setTimeout(()=>$('#toInput').focus(),250);};
 function setVehicles(on){
   settings.showVehicles=on;saveSettings();
-  const lpVeh=$('#lpVeh');if(lpVeh)lpVeh.checked=on;
   if(!on){vehiclesLayer.clearLayers();vehicleMarkers.clear();$('#vehCount').hidden=true;}
   else refreshVehicles();
   updateVehHint();
 }
-
-/* ---------- Lagpanel ---------- */
-function renderLayersPanel(){
-  $('#layersPanel').innerHTML=`
-    <div class="lp-head"><h3>Kartlag</h3>
-      <button class="icon-btn" id="lpClose">${icon('x',17)}</button></div>
-    <div class="lp-sec"><label>Grunnkart</label>
-      <div class="bm-grid" id="bmGrid">
-        <button data-bm="standard"><span class="sw sw-std"></span>Standard</button>
-        <button data-bm="topo"><span class="sw sw-topo"></span>Topografi</button>
-        <button data-bm="fly"><span class="sw sw-fly"></span>Flyfoto</button>
-        <button data-bm="dark"><span class="sw sw-dark"></span>Mørk</button>
-      </div>
-    </div>
-    <div class="lp-sec"><label>Punktlag</label>
-      <div class="lp-row"><div class="lbl">Sanntidskjøretøy<small>Busser, trikk og båter i bevegelse</small></div>
-        <label class="switch"><input type="checkbox" id="lpVeh" ${settings.showVehicles?'checked':''}><span class="tr"></span></label></div>
-      <div class="lp-row"><div class="lbl">Holdeplasser<small>Markører for holdeplasser nær deg</small></div>
-        <label class="switch"><input type="checkbox" id="lpStops" ${settings.showStops?'checked':''}><span class="tr"></span></label></div>
-    </div>
-    <div class="lp-sec"><label>Gangradius</label>
-      <div class="seg" id="wrSeg">
-        <button data-r="0" ${settings.walkRadius===0?'class="on"':''}>Av</button>
-        <button data-r="5" ${settings.walkRadius===5?'class="on"':''}>5 min</button>
-        <button data-r="10" ${settings.walkRadius===10?'class="on"':''}>10 min</button>
-        <button data-r="15" ${settings.walkRadius===15?'class="on"':''}>15 min</button>
-      </div>
-    </div>
-    <button class="btn btn-ghost" id="clearMapBtn">${icon('x',16)} Nullstill rute og søk</button>`;
-  $$('#bmGrid button').forEach(b=>b.onclick=()=>{buzz(6);
-    settings.basemap=b.dataset.bm;saveSettings();applyBasemap();
-    toast('Grunnkart: '+BASEMAPS[b.dataset.bm].name);});
-  $('#lpVeh').onchange=e=>{buzz(6);setVehicles(e.target.checked);};
-  $('#lpStops').onchange=e=>{buzz(6);settings.showStops=e.target.checked;saveSettings();
-    applyStops();};
-  $$('#wrSeg button').forEach(b=>b.onclick=()=>{buzz(6);
-    settings.walkRadius=+b.dataset.r;saveSettings();
-    $$('#wrSeg button').forEach(x=>x.classList.toggle('on',x===b));
-    updateRadius();});
-  $('#clearMapBtn').onclick=()=>{buzz(8);
-    tripSearchVersion++;
-    clearDrawnRoute();state.fromSel=null;state.dest=null;setRouteEndpoints();
-    $('#fromInput').value='';$('#fromInput').dataset.set='';
-    $('#toInput').value='';$('#toInput').dataset.set='';$('#tripResults').innerHTML='';$('#tripIntro').hidden=false;
-    $('#layersPanel').hidden=true;toast('Reisesøket er nullstilt');};
-  $('#lpClose').onclick=()=>{buzz(6);$('#layersPanel').hidden=true;};
-  $$('#bmGrid button').forEach(b=>b.classList.toggle('on',b.dataset.bm===(settings.basemap||'standard')));
-}
-$('#layersBtn').onclick=()=>{buzz(8);
-  const p=$('#layersPanel');
-  if(p.hidden){renderLayersPanel();p.hidden=false;}else p.hidden=true;};
 
 /* ---------- Gangradius ---------- */
 function updateRadius(){
@@ -1367,29 +1354,32 @@ $('#alertsRefresh').onclick=()=>{buzz(8);$('#alertsRefresh').classList.add('spin
 /* ---------- Bunnark (drag) ---------- */
 const sheet=$('#sheet'),grip=$('#sheetGrip');
 let sDrag=null;
-grip.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();sheet.classList.toggle('open');}});
+function toggleSheet(){sheet.classList.toggle('open');grip.setAttribute('aria-expanded',String(sheet.classList.contains('open')));}
+grip.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleSheet();}});
 grip.addEventListener('pointerdown',e=>{
   sDrag={y:e.clientY,open:sheet.classList.contains('open')};
   sheet.classList.add('drag');grip.setPointerCapture(e.pointerId);});
 grip.addEventListener('pointermove',e=>{
   if(!sDrag)return;
-  const peek=sheet.offsetHeight-118;
+  const peek=sheet.offsetHeight-104;
   const base=sDrag.open?0:peek;
   const y=Math.min(peek,Math.max(0,base+(e.clientY-sDrag.y)));
   sheet.style.transform=`translateY(${y}px)`;});
 function endSheet(e){
   if(!sDrag)return;
-  const peek=sheet.offsetHeight-118;
+  const peek=sheet.offsetHeight-104;
   const base=sDrag.open?0:peek;
   const y=Math.min(peek,Math.max(0,base+(e.clientY-sDrag.y)));
   sheet.classList.remove('drag');sheet.style.transform='';
-  sheet.classList.toggle('open',y<peek/2);
+  sheet.classList.toggle('open',Math.abs(e.clientY-sDrag.y)<8?!sDrag.open:y<peek/2);
+  grip.setAttribute('aria-expanded',String(sheet.classList.contains('open')));
   sDrag=null;buzz(6);
 }
 grip.addEventListener('pointerup',endSheet);
 grip.addEventListener('pointercancel',()=>{if(sDrag){sheet.classList.remove('drag');sheet.style.transform='';sDrag=null;}});
 function renderSheet(){
   if(state.activeTrip){
+    sheet.hidden=false;
     if($('#sheetBody').dataset.trip==='1')return;
     const p=state.activeTrip,legs=p.legs||[];
     const vehicles=legs.filter(l=>l.mode!=='foot');
@@ -1424,17 +1414,8 @@ function renderSheet(){
     return;
   }
   $('#sheetBody').dataset.trip='0';
-  $('#sheet .sheet-head h2').textContent='Nærmeste holdeplasser';
-  const list=state.stops.slice(0,5);
-  $('#sheetDist').textContent=state.pos?'fra din posisjon':'søk eller Oslo sentrum';
-  $('#sheetBody').innerHTML=list.length?list.map(s=>{
-    const next=s.deps&&s.deps[0];
-    const meta=s.distance!=null?`${s.distance} m · ca ${walkMin(s.distance)} min å gå`:'Valgt stoppested';
-    return`<button class="sheet-item" data-sid="${esc(s.id)}">
-      <div><b>${esc(s.name)}</b><small>${meta}</small></div>
-      <span class="mini-next">${next?esc(next.pub)+' · '+depLabel(next.exp):''}</span></button>`;
-  }).join(''):'<div class="skel"></div><div class="skel"></div>';
-  $$('#sheetBody [data-sid]').forEach(el=>el.onclick=()=>{buzz(6);openStop(el.dataset.sid);});
+  sheet.hidden=true;
+
 }
 
 /* ---------- Stedssøk ---------- */
@@ -1551,14 +1532,10 @@ async function tripSearch(){
       vars.dt=d.toISOString();vars.arr=state.timeMode==='arr';
     }
   }
-  const am=[...state.activeModes];
-  const allowed=['bus','tram','metro','rail','water','coach','funicular','cableway','air'];
-  const modeClause=am.length<Object.keys(MODES).length?
-    `,modes:{transportModes:[${am.filter(m=>allowed.includes(m)).map(m=>`{transportMode:${m}}`).join(',')}]}`:'';
   try{
     let d,level=tripSchemaLevel;
     while(true){
-      try{d=await gql(Q_TRIP(level).replace('__MODES__',modeClause),vars);tripSchemaLevel=level;break;}
+      try{d=await gql(Q_TRIP(level).replace('__MODES__',''),vars);tripSchemaLevel=level;break;}
       catch(e){
         if(level>=3||!(/validation error|field .*undefined|unknown type/i).test(e.message||''))throw e;
         level++;tripSchemaLevel=level;
@@ -1603,8 +1580,13 @@ function decodePoly(enc){
   }
   return pts;
 }
+const minorStops=[];
+function updateMinorStops(){
+  routeMinorLayer.clearLayers();
+  if(state.activeTrip&&map.getZoom()>=16)minorStops.forEach(m=>routeMinorLayer.addLayer(m));
+}
 function drawRoute(p){
-  clearDrawnRoute();const bounds=[];let drawn=0;
+  clearDrawnRoute();minorStops.length=0;const bounds=[];let drawn=0;
   const rides=(p.legs||[]).filter(l=>l.mode!=='foot');
   (p.legs||[]).forEach(l=>{
     if(!l.points)return;
@@ -1622,17 +1604,19 @@ function drawRoute(p){
     bounds.push(...pts);
   });
   const plotted=new Set();
-  const addRouteStop=(quay,label,time,color,kind)=>{
+  const addRouteStop=(quay,label,time,color,kind,transferNumber)=>{
     const lat=+quay?.latitude,lon=+quay?.longitude;
     if(!quay||!Number.isFinite(lat)||!Number.isFinite(lon)||!lat||!lon)return;
     const key=`${lat.toFixed(5)},${lon.toFixed(5)}`;
-    if(plotted.has(key)&&kind==='mellomstopp')return;
+    if(plotted.has(key))return;
     plotted.add(key);
     const transfer=kind==='bytte';
-    const size=transfer?19:13;
+    const minor=kind==='mellomstopp';
+    const size=transfer?28:minor?8:18;
     const marker=L.marker([lat,lon],{icon:L.divIcon({className:'',
-      html:`<div class="route-stop-dot${transfer?' transfer':''}" style="background:${color}"></div>`,
-      iconSize:[size,size],iconAnchor:[size/2,size/2]}),zIndexOffset:transfer?650:450}).addTo(routeLayer);
+      html:`<div class="route-stop-dot${transfer?' transfer':''}${minor?' minor':''}" style="--stop-color:${color}">${transfer?`<span>${transferNumber}</span>`:''}</div>`,
+      iconSize:[size,size],iconAnchor:[size/2,size/2]}),zIndexOffset:transfer?650:minor?100:450});
+    if(minor)minorStops.push(marker);else routeLayer.addLayer(marker);
     marker.bindPopup(`<b>${esc(label)}</b><br>${esc(kind)}${time?' · '+fmtT(time):''}`);
     bounds.push([lat,lon]);
   };
@@ -1640,16 +1624,25 @@ function drawRoute(p){
     const color=(MODES[l.mode]||{c:'#187D78'}).c;
     const from=l.fromPlace?.name||'Påstigning';
     const to=l.toPlace?.name||'Avstigning';
-    addRouteStop(l.fromPlace?.quay,from,l.expectedStartTime,color,i?'bytte':'påstigning');
+    addRouteStop(l.fromPlace?.quay,from,l.expectedStartTime,color,i?'mellomstopp':'påstigning');
     (l.intermediateEstimatedCalls||[]).forEach(c=>addRouteStop(c.quay,c.quay?.name||'Stopp',c.expectedArrivalTime,color,'mellomstopp'));
-    addRouteStop(l.toPlace?.quay,to,l.expectedEndTime,color,i<rides.length-1?'bytte':'avstigning');
+    addRouteStop(l.toPlace?.quay,to,l.expectedEndTime,color,i<rides.length-1?'bytte':'avstigning',i+1);
+  });
+  // Missing Entur geometry: connect known station positions schematically; no street accuracy implied.
+  if(!drawn)rides.forEach(l=>{
+    const coordinates=[l.fromPlace?.quay,...(l.intermediateEstimatedCalls||[]).map(c=>c.quay),l.toPlace?.quay]
+      .map(q=>[+q?.latitude,+q?.longitude]).filter(([lat,lon])=>Number.isFinite(lat)&&Number.isFinite(lon)&&lat&&lon);
+    if(coordinates.length>=2){
+      routeLayer.addLayer(L.polyline(coordinates,{color:'#fff',weight:8,opacity:.85,interactive:false}));
+      routeLayer.addLayer(L.polyline(coordinates,{color:(MODES[l.mode]||{c:'#187D78'}).c,weight:4,dashArray:'7 9',opacity:.95,interactive:false}));
+    }
   });
   const start=state.fromSel?[state.fromSel.lat,state.fromSel.lon]:state.pos;
   if(start)bounds.push(start);
   if(state.dest)bounds.push([state.dest.lat,state.dest.lon]);
   setRouteEndpoints();
-  state.activeTrip=p;applyStops();renderSheet();sheet.classList.add('open');
-  if(!drawn)toast('Kartlinje mangler – reiseetappene vises under');
+  state.activeTrip=p;document.body.dataset.route='active';applyBasemap();applyStops();renderSheet();updateMinorStops();
+  if(!drawn)$('#sheetBody').insertAdjacentHTML('afterbegin','<div class="journey-summary">Kartlinjen er skjematisk. Følg stopp og bytter i reisedetaljene.</div>');
   routeBounds=bounds.length>=2?L.latLngBounds(bounds):null;
   $('#geoWarn').hidden=true;
   const changes=Math.max(0,rides.length-1);
@@ -1669,6 +1662,14 @@ $('#vibToggle').checked=settings.vibrate;
 $('#vibToggle').onchange=e=>{settings.vibrate=e.target.checked;saveSettings();buzz(10);};
 $('#refreshSel').value=String(settings.refreshSec);
 $('#refreshSel').onchange=e=>{settings.refreshSec=+e.target.value;saveSettings();restartAutoRefresh();};
+$('#basemapSelect').value=settings.basemap||'standard';
+$('#basemapSelect').onchange=e=>{settings.basemap=e.target.value;saveSettings();applyBasemap();};
+$('#mapStopsToggle').checked=settings.showStops;
+$('#mapStopsToggle').onchange=e=>{settings.showStops=e.target.checked;saveSettings();applyStops();};
+$('#mapVehiclesToggle').checked=settings.showVehicles;
+$('#mapVehiclesToggle').onchange=e=>setVehicles(e.target.checked);
+$('#alertsEntry').onclick=()=>switchView('alerts');
+$('#alertsBack').onclick=()=>switchView('settings');
 $('#resetBtn').onclick=()=>{
   if(confirm('Slette favoritter, nylige reisemål og innstillinger?')){
     localStorage.removeItem('reisFavs');localStorage.removeItem('reisSettings');
@@ -1678,9 +1679,8 @@ $('#resetBtn').onclick=()=>{
 /* ---------- Navigasjon ---------- */
 function switchView(v){
   document.body.dataset.view=v;
-  $('#layersPanel').hidden=true;
   $$('.view').forEach(x=>x.classList.toggle('active',x.dataset.view===v));
-  $$('.tabbar button').forEach(b=>b.classList.toggle('active',b.dataset.go===v));
+  $$('.tabbar button').forEach(b=>b.classList.toggle('active',b.dataset.go===(v==='alerts'?'settings':v)));
   if(v==='map'){setTimeout(()=>map.invalidateSize(),80);updateVehHint();}
   history.replaceState(null,'','#'+v);
   if(v==='dep'&&!getAllStops().some(s=>s.deps))loadAllDeps();
