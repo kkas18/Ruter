@@ -75,21 +75,35 @@ function build(theme){
   return{
     version:8,
     glyphs:'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
-    sources:{omt:{type:'vector',url:'https://tiles.openfreemap.org/planet',
+    sources:{
+      sat:{type:'raster',tileSize:256,maxzoom:19,
+        tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+        attribution:'Satellitt © <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a>, Maxar, Earthstar Geographics'},
+      omt:{type:'vector',url:'https://tiles.openfreemap.org/planet',
       attribution:'<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'}},
-    layers:LAYERS.map(l=>{
+    layers:[LAYERS[0],{id:'sat',type:'raster',source:'sat',layout:{visibility:'none'},paint:{'raster-fade-duration':150}},...LAYERS.slice(1)].map(l=>{
       const {pal,...spec}=l;
       const out={...spec,paint:{...(spec.paint||{})}};
-      if(spec.type!=='background')out.source='omt';
+      if(spec.type!=='background'&&!spec.source)out.source='omt';
       for(const [prop,key] of Object.entries(pal||{}))out.paint[prop]=p[key];
       return out;
     })
   };
 }
-function applyTheme(map,theme){
+// Satellitt er en hybrid: flybildet under, bare navn oppå (hvit tekst med mørk kant).
+const SAT_TEXT={text:'#FFFFFF',halo:'rgba(0,0,0,0.78)'};
+function applyTheme(map,theme,sat=false){
   const p=PALETTE[theme]||PALETTE.light;
-  for(const l of LAYERS)for(const [prop,key] of Object.entries(l.pal||{})){
-    if(map.getLayer(l.id))map.setPaintProperty(l.id,prop,p[key]);
+  if(map.getLayer('sat'))map.setLayoutProperty('sat','visibility',sat?'visible':'none');
+  for(const l of LAYERS){
+    if(!map.getLayer(l.id))continue;
+    const isText=l.type==='symbol';
+    if(l.type!=='background')map.setLayoutProperty(l.id,'visibility',sat&&!isText?'none':'visible');
+    for(const [prop,key] of Object.entries(l.pal||{})){
+      let v=p[key];
+      if(sat&&isText)v=prop==='text-halo-color'?SAT_TEXT.halo:SAT_TEXT.text;
+      map.setPaintProperty(l.id,prop,v);
+    }
   }
 }
 window.ReisMapStyle={build,applyTheme,palette:t=>PALETTE[t]||PALETTE.light};

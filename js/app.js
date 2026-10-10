@@ -35,7 +35,7 @@ const REFRESH_MS=30000;
 /* ---------- Lagring ---------- */
 function loadJSON(k,f){try{const v=JSON.parse(localStorage.getItem(k));return v??f;}catch(e){return f;}}
 function saveJSON(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
-let settings=Object.assign({theme:'auto',walkKmh:4.5,showVehicles:true,vibrate:true},loadJSON('reisSettings',{}));
+let settings=Object.assign({theme:'auto',walkKmh:4.5,showVehicles:true,vibrate:true,basemap:'map'},loadJSON('reisSettings',{}));
 let favs=loadJSON('reisFavs',[]);if(!Array.isArray(favs))favs=[];
 let recentTargets=loadJSON('reisRecentTargets',[]);if(!Array.isArray(recentTargets))recentTargets=[];
 const saveSettings=()=>saveJSON('reisSettings',settings);
@@ -94,7 +94,7 @@ function paintTheme(){
   const t=resolveTheme();
   document.documentElement.dataset.theme=t;
   $('meta[name="theme-color"]').content=t==='dark'?'#15191C':'#EFEDE7';
-  if(mapLoaded){ReisMapStyle.applyTheme(map,t);applyOverlayTheme();}
+  if(mapLoaded){ReisMapStyle.applyTheme(map,t,isSat());applyOverlayTheme();}
 }
 mqDark.addEventListener('change',()=>{if(settings.theme==='auto'){paintTheme();if(router.cur.name==='settings')router.refresh();}});
 
@@ -143,7 +143,7 @@ const Q_TRIP=level=>`query($fl:Float!,$fp:Float!,$tl:Float!,$tp:Float!,$dt:DateT
       fromPlace{name${level<=1?' quay{publicCode latitude longitude}':''}}
       toPlace{name${level<=1?' quay{publicCode latitude longitude}':''}}
       line{publicCode}
-      ${level<=1?'realtime fromEstimatedCall{destinationDisplay{frontText}}':''}
+      ${level<=1?'id realtime serviceJourney{id} fromEstimatedCall{destinationDisplay{frontText}}':''}
       ${level<3?`intermediateEstimatedCalls{expectedArrivalTime quay{name${level<=1?' latitude longitude':''}}}`:''}
       ${level===0?'pointsOnLink{points}':''}
     }}}}`;
@@ -164,8 +164,11 @@ const EMPTY={type:'FeatureCollection',features:[]};
 const fc=features=>({type:'FeatureCollection',features});
 const setData=(id,data)=>{const s=mapLoaded&&map.getSource(id);if(s)s.setData(data);};
 
+const isSat=()=>settings.basemap==='sat';
 function overlayColors(){
   const dark=resolveTheme()==='dark',p=ReisMapStyle.palette(resolveTheme());
+  // Over flybilder trengs hvit kontur og hvit tekst med mørk kant, uansett tema.
+  if(isSat())return{case:'#FFFFFF',stopFill:'#FFFFFF',stopRing:'#14191C',label:'#FFFFFF',halo:'rgba(0,0,0,0.8)',walk:'#FFFFFF',me:'#5B8DF5'};
   return{case:dark?'#0F1316':'#FFFFFF',stopFill:dark?'#EEECE6':'#FFFFFF',stopRing:dark?'#0F1316':'#14191C',
     label:dark?'#D3D7D9':'#2D3438',halo:p.halo,walk:dark?'#B3BABE':'#465055',me:dark?'#5B8DF5':'#2F6FEB'};
 }
@@ -178,7 +181,17 @@ function applyOverlayTheme(){
   set('stops','circle-color',['case',['get','fav'],'#FFC800',c.stopFill]);
   set('stops-label','text-color',c.label);set('stops-label','text-halo-color',c.halo);
   set('acc','fill-color',c.me);set('acc-line','line-color',c.me);
+  set('route-stop-label','text-color',c.label);set('route-stop-label','text-halo-color',c.halo);
 }
+// Én knapp på kartet veksler mellom kart og satellitt (hybrid med navn oppå).
+function setBasemap(mode){
+  settings.basemap=mode;saveSettings();
+  $('#layerBtn').setAttribute('aria-pressed',String(mode==='sat'));
+  $('#layerBtn').setAttribute('aria-label',mode==='sat'?'Vis kart':'Vis satellitt');
+  document.body.classList.toggle('sat',mode==='sat');
+  if(mapLoaded){ReisMapStyle.applyTheme(map,resolveTheme(),mode==='sat');applyOverlayTheme();}
+}
+$('#layerBtn').onclick=()=>{buzz(8);setBasemap(isSat()?'map':'sat');toast(isSat()?'Satellitt':'Kart');};
 function vehicleImage(color){
   const s=56,cv=document.createElement('canvas');cv.width=cv.height=s;const g=cv.getContext('2d');
   g.translate(s/2,s/2);g.beginPath();g.moveTo(0,-21);g.lineTo(17,19);g.lineTo(0,10);g.lineTo(-17,19);g.closePath();
@@ -206,18 +219,29 @@ map.on('load',()=>{
     layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':['get','color'],'line-width':['interpolate',['linear'],['zoom'],10,3.5,16,7]}});
   map.addLayer({id:'route-walk',type:'line',source:'route',filter:['get','walk'],
     layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':c.walk,'line-width':['interpolate',['linear'],['zoom'],10,2.5,16,4.5],'line-dasharray':[0,1.8]}});
-  map.addLayer({id:'route-stop-minor',type:'circle',source:'route-stops',minzoom:13.5,filter:['get','minor'],paint:{
-    'circle-radius':3.2,'circle-color':c.case,'circle-stroke-color':['get','color'],'circle-stroke-width':2}});
+  // Alle holdeplasser langs valgt rute: små prikker for stopp underveis, store for på/av og bytte.
+  map.addLayer({id:'route-stop-minor',type:'circle',source:'route-stops',filter:['get','minor'],paint:{
+    'circle-radius':['interpolate',['linear'],['zoom'],10,2,14,3.6,17,5],'circle-color':c.case,'circle-stroke-color':['get','color'],
+    'circle-stroke-width':['interpolate',['linear'],['zoom'],10,1.5,15,2.5]}});
   map.addLayer({id:'route-stop',type:'circle',source:'route-stops',filter:['!',['get','minor']],paint:{
-    'circle-radius':6,'circle-color':c.case,'circle-stroke-color':['get','color'],'circle-stroke-width':3.5}});
-  map.addLayer({id:'vehicles',type:'symbol',source:'vehicles',minzoom:13,layout:{
+    'circle-radius':['interpolate',['linear'],['zoom'],10,4.5,15,7],'circle-color':c.case,'circle-stroke-color':['get','color'],'circle-stroke-width':3.5}});
+  map.addLayer({id:'route-stop-label',type:'symbol',source:'route-stops',
+    filter:['any',['!',['get','minor']],['>=',['zoom'],13.5]],layout:{
+    'text-field':['format',['get','name'],{'font-scale':1},['case',['!=',['get','clock'],''],['concat','  ',['get','clock']],''],{'font-scale':.92,'text-font':['literal',['Noto Sans Regular']]}],
+    'text-font':['Noto Sans Bold'],'text-size':['case',['get','minor'],11,12.5],'text-anchor':'left','text-offset':[.9,0],
+    'text-max-width':14,'text-optional':true,'symbol-sort-key':['case',['get','minor'],2,1]},
+    paint:{'text-color':c.label,'text-halo-color':c.halo,'text-halo-width':1.6}});
+  map.addLayer({id:'vehicles',type:'symbol',source:'vehicles',minzoom:11.5,layout:{
     'icon-image':['concat','veh-',['get','mode']],'icon-rotate':['get','bearing'],'icon-rotation-alignment':'map',
     'icon-allow-overlap':true,'icon-size':['interpolate',['linear'],['zoom'],13,.75,17,1.05]}});
 
   map.on('click','stops',e=>{const f=e.features[0];if(!f)return;buzz(6);
     router.go('stop',{id:f.properties.id});});
   map.on('click','vehicles',e=>{const p=e.features[0]?.properties||{};buzz(6);
-    toast(`${modeOf(p.mode).n} ${p.line||''}${p.dest?' mot '+p.dest:''}${p.next?' · neste: '+p.next:''}`);});
+    toast(`${modeOf(p.mode).n} ${p.line||''}${p.dest?' mot '+p.dest:''} · GPS`);});
+  map.on('click','route-stop-minor',e=>{const p=e.features[0]?.properties;if(!p)return;
+    new maplibregl.Popup({offset:8,closeButton:false}).setLngLat(e.lngLat)
+      .setHTML(`<b>${esc(p.name)}</b><br><span style="color:var(--ink-3)">${esc(p.kind)}${p.time?' · kl. '+fmtT(p.time):''}</span>`).addTo(map);});
   map.on('click','route-stop',e=>{const p=e.features[0]?.properties;if(!p)return;
     new maplibregl.Popup({offset:10,closeButton:false}).setLngLat(e.lngLat)
       .setHTML(`<b>${esc(p.name)}</b><br><span style="color:var(--ink-3)">${esc(p.kind)}${p.time?' · kl. '+fmtT(p.time):''}</span>`).addTo(map);});
@@ -225,7 +249,7 @@ map.on('load',()=>{
     map.on('mouseenter',l,()=>map.getCanvas().style.cursor='pointer');
     map.on('mouseleave',l,()=>map.getCanvas().style.cursor='');});
 
-  paintTheme();renderStopsLayer();renderAcc();map.setPadding(mapPadding());
+  setBasemap(settings.basemap);paintTheme();renderStopsLayer();renderAcc();map.setPadding(mapPadding());
   // Kildehenvisningen starter sammenslått som en ⓘ-knapp.
   $('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
   $('.maplibregl-ctrl-attrib')?.removeAttribute('open');
@@ -240,7 +264,7 @@ map.on('dragstart',()=>{if(state.follow)setFollow(false);});
 map.on('rotate',()=>{const b=map.getBearing();$('#compassBtn').hidden=Math.abs(b)<1;
   $('#compassIcon').style.transform=`rotate(${-b}deg)`;});
 $('#compassBtn').onclick=()=>{buzz(6);map.easeTo({bearing:0,duration:reduceMotion.matches?0:400});};
-$('#locateBtn').onclick=()=>{buzz(8);
+$('#locateBtn').onclick=()=>{buzz(8);startCompass();
   if(!state.pos){requestGeoOnce();toast('Henter posisjonen din…');return;}
   setFollow(true);
   map.easeTo({center:[state.pos[1],state.pos[0]],zoom:Math.max(map.getZoom(),16),duration:reduceMotion.matches?0:700});};
@@ -463,8 +487,7 @@ function stopCard(s){
 pages.home={
   initial:'half',peek:196,
   head(){
-    const loc=state.pos?'Rundt deg':state.nearbyAt?'Rundt kartsenteret':'Henter posisjon…';
-    return`<div class="titles"><div class="head-title">Avganger</div><div class="head-sub" id="homeSub">${loc}${state.updated?` · oppdatert ${fmtT(state.updated)}`:''}</div></div>
+    return`<div class="titles"><div class="head-title">Avganger</div><div class="head-sub" id="homeSub">${homeSubText()}</div></div>
       <button class="icon-btn press" id="homeRefresh" type="button" aria-label="Oppdater avganger">${ico('refresh')}</button>`;
   },
   body(){
@@ -648,13 +671,14 @@ pages.trip={
         <span class="rail"><span class="node"></span></span><div class="body"><div class="place">${place}</div><div class="what">${what}</div>${meta?`<div class="meta">${meta}</div>`:''}${details}</div></div>`;
     }).join('');
     const last=legs[legs.length-1];
-    return(p.schematic?'<div class="jnote">Kartlinjen er forenklet. Følg stoppene og byttene her.</div>':'')+steps+
+    return'<div class="live-status" id="liveStatus" hidden></div>'+(p.schematic?'<div class="jnote">Kartlinjen er forenklet. Følg stoppene og byttene her.</div>':'')+steps+
       `<div class="leg end"><time>${fmtT(p.expectedEndTime)}</time><span class="rail"><span class="node"></span></span>
       <div class="body"><div class="place">${esc(placeName(last?.toPlace,p.toName))}</div></div></div>`;
   },
   bind(){
     $('#fitRoute')?.addEventListener('click',()=>{buzz(6);fitRoute();});
     $('#closeTrip')?.addEventListener('click',()=>{buzz(6);router.home();});
+    updateLiveBox();
   },
   enter(){drawRoute(state.trips[state.tripIdx]);}
 };
@@ -736,7 +760,7 @@ pages.settings={
         ${[['auto','Auto'],['light','Lys'],['dark','Mørk']].map(([k,l])=>`<button type="button" data-t="${k}" aria-pressed="${settings.theme===k}">${l}</button>`).join('')}</div></div>
       <div class="row-item"><span class="lbl"><b>Gangfart</b><small id="walkVal">${walk} km/t</small></span>
         <input type="range" id="walkRange" min="3" max="6" step="0.5" value="${settings.walkKmh}" aria-label="Gangfart"></div>
-      <label class="row-item" for="vehToggle"><span class="lbl"><b>Kjøretøy i sanntid</b><small>Vises på kartet når du zoomer inn</small></span>
+      <label class="row-item" for="vehToggle"><span class="lbl"><b>Kjøretøy i sanntid</b><small>Tog, flybuss og regionbusser med GPS. Ruter deler ikke posisjoner, så for din reise beregnes de fra sanntid.</small></span>
         <span class="switch"><input type="checkbox" id="vehToggle" ${settings.showVehicles?'checked':''}><span class="tr"></span></span></label>
       <label class="row-item" for="vibToggle"><span class="lbl"><b>Vibrasjon</b><small>Kort tilbakemelding ved trykk</small></span>
         <span class="switch"><input type="checkbox" id="vibToggle" ${settings.vibrate?'checked':''}><span class="tr"></span></span></label>
@@ -773,16 +797,38 @@ let geoWatch=null,firstFix=true;
 function handlePos(p){
   const lat=p.coords.latitude,lon=p.coords.longitude;
   state.pos=[lat,lon];state.acc=Math.round(p.coords.accuracy||0);
-  state.heading=(p.coords.heading!=null&&!isNaN(p.coords.heading))?p.coords.heading:null;
-  meMarker.setLngLat([lon,lat]);if(!meMarker._map)meMarker.addTo(map);
-  meEl.classList.toggle('has-heading',state.heading!=null);
-  if(state.heading!=null)meEl.querySelector('.cone').style.transform=`rotate(${state.heading}deg)`;
+  // GPS-retning gjelder bare i fart; ellers brukes kompasset.
+  const moving=(p.coords.speed||0)>1.2&&p.coords.heading!=null&&!isNaN(p.coords.heading);
+  if(moving)state.heading=p.coords.heading;
+  if(!meMarker._map)meMarker.setLngLat([lon,lat]).addTo(map);
+  else tweenLngLat(meMarker,[lon,lat],700); // glir mellom målingene i stedet for å hoppe
+  paintHeading();
   renderAcc();
+  if(router.cur.name==='home'){const sub=$('#homeSub');if(sub)sub.textContent=homeSubText();}
   if(firstFix){firstFix=false;setFollow(true);
     if(router.cur.name==='home'||router.cur.name==='search')map.jumpTo({center:[lon,lat],zoom:15.5});}
   else if(state.follow&&router.cur.name!=='trip'&&router.cur.name!=='results')map.easeTo({center:[lon,lat],duration:reduceMotion.matches?0:800});
   if(!state.nearbyAt||geoDist(state.nearbyAt,[lat,lon])>120)loadNearby(lat,lon,true);
 }
+function paintHeading(){
+  meEl.classList.toggle('has-heading',state.heading!=null);
+  if(state.heading!=null)meEl.querySelector('.cone').style.transform=`rotate(${state.heading}deg)`;
+}
+// Kompass: viser hvilken vei du peker når du står stille. iOS krever at brukeren gir lov ved et trykk.
+let compassOn=false;
+function startCompass(){
+  if(compassOn)return;
+  const listen=()=>{compassOn=true;
+    const on=e=>{const h=e.webkitCompassHeading!=null?e.webkitCompassHeading:(e.absolute&&e.alpha!=null?360-e.alpha:null);
+      if(h==null)return;const sc=screen.orientation?.angle||0;state.heading=(h+sc)%360;
+      if(!headingRaf)headingRaf=requestAnimationFrame(()=>{headingRaf=0;paintHeading();});};
+    addEventListener('ondeviceorientationabsolute' in window?'deviceorientationabsolute':'deviceorientation',on);};
+  const D=window.DeviceOrientationEvent;
+  if(D&&typeof D.requestPermission==='function')D.requestPermission().then(r=>{if(r==='granted')listen();}).catch(()=>{});
+  else if(D)listen();
+}
+let headingRaf=0;
+const homeSubText=()=>`${state.pos?`Rundt deg${state.acc?` · ±${state.acc} m`:''}`:state.nearbyAt?'Rundt kartsenteret':'Henter posisjon…'}${state.updated?` · oppdatert ${fmtT(state.updated)}`:''}`;
 function requestGeoOnce(){
   if(!('geolocation' in navigator)){toast('Enheten støtter ikke posisjon.');return;}
   navigator.geolocation.getCurrentPosition(p=>{handlePos(p);startGeo();},
@@ -791,7 +837,7 @@ function requestGeoOnce(){
 function startGeo(){
   if(!('geolocation' in navigator)){geoFallback();return;}
   if(geoWatch!=null)return;
-  geoWatch=navigator.geolocation.watchPosition(handlePos,geoFallback,{enableHighAccuracy:true,maximumAge:8000,timeout:20000});
+  geoWatch=navigator.geolocation.watchPosition(handlePos,geoFallback,{enableHighAccuracy:true,maximumAge:0,timeout:20000});
 }
 function geoFallback(err){
   if(err&&err.code===err.PERMISSION_DENIED&&geoWatch!=null){navigator.geolocation.clearWatch(geoWatch);geoWatch=null;}
@@ -882,32 +928,44 @@ async function loadDeps(force=false){
   if(router.cur.name==='home')router.refresh();
 }
 
-/* ---------- Kjøretøy (SIRI VM) ---------- */
+/* ---------- Kjøretøy med GPS (Enturs kjøretøy-API) ----------
+   Henter bare utsnittet du ser på, hvert 10. sek, og lar kjøretøyene gli
+   mellom oppdateringene. Ruter deler ikke posisjoner; deres kjøretøy vises
+   for valgt reise, beregnet fra sanntid (se LIVE REISE). */
 const tagText=(el,name)=>{const n=el&&el.getElementsByTagName(name)[0];return n?n.textContent:'';};
-let vehBusy=false,vehAt=0,vehData=EMPTY;
+const VEH_MODE={BUS:'bus',TRAM:'tram',METRO:'metro',RAIL:'rail',WATER:'water',FERRY:'water',COACH:'coach'};
+let vehBusy=false,vehAt=0,vehPrev=new Map(),vehAnim=0;
+const vehiclesWanted=()=>settings.showVehicles&&!document.hidden&&mapLoaded&&map.getZoom()>=11.5&&['home','stop'].includes(router.cur.name);
 async function refreshVehicles(force=false){
-  const show=settings.showVehicles&&!document.hidden&&mapLoaded&&map.getZoom()>=13&&['home','stop'].includes(router.cur.name);
-  if(!show){if(router.cur.name==='results'||router.cur.name==='trip')setData('vehicles',EMPTY);return;}
-  if(vehBusy||(!force&&Date.now()-vehAt<25000)){setData('vehicles',vehData);return;}
+  if(!vehiclesWanted()){if(mapLoaded&&!['home','stop'].includes(router.cur.name))setData('vehicles',EMPTY);return;}
+  if(vehBusy||(!force&&Date.now()-vehAt<9000))return;
   vehBusy=true;vehAt=Date.now();
   try{
-    const r=await fetchWithTimeout(`${API.vm}?datasetId=RUT`,{headers:{'ET-Client-Name':API.client}},18000);
-    if(!r.ok)throw new Error();
-    const doc=new DOMParser().parseFromString(await r.text(),'text/xml');
-    const feats=[];
-    for(const va of doc.getElementsByTagName('VehicleActivity')){
-      const gj=va.getElementsByTagName('MonitoredVehicleJourney')[0];if(!gj)continue;
-      const lat=parseFloat(tagText(gj,'Latitude')),lon=parseFloat(tagText(gj,'Longitude'));
-      if(isNaN(lat)||isNaN(lon))continue;
-      const mode=tagText(gj,'VehicleMode').toLowerCase();
-      const mc=gj.getElementsByTagName('MonitoredCall')[0];
-      feats.push({type:'Feature',geometry:{type:'Point',coordinates:[lon,lat]},properties:{
-        mode:MODES[mode]?mode:'other',bearing:parseFloat(tagText(gj,'Bearing'))||0,line:tagText(gj,'LineRef').split(':').pop(),
-        dest:tagText(gj,'DestinationName'),next:mc?tagText(mc,'StopPointName'):''}});
-    }
-    vehData=fc(feats);
-    if(['home','stop'].includes(router.cur.name)&&settings.showVehicles)setData('vehicles',vehData);
+    const b=map.getBounds().toArray(),pad=.01;
+    const q=`{vehicles(boundingBox:{minLat:${b[0][1]-pad},minLon:${b[0][0]-pad},maxLat:${b[1][1]+pad},maxLon:${b[1][0]+pad}},maxDataAge:"PT3M"){
+      vehicleId mode bearing lastUpdatedEpochSecond destinationName location{latitude longitude} line{publicCode} monitoredCall{stopPointRef}}}`;
+    const r=await fetchWithTimeout(VEH_API,{method:'POST',headers:{'Content-Type':'application/json','ET-Client-Name':API.client},body:JSON.stringify({query:q})},12000);
+    const list=(await r.json())?.data?.vehicles||[];
+    const next=new Map();
+    list.forEach(v=>{if(!Number.isFinite(v.location?.latitude))return;
+      const mode=VEH_MODE[v.mode]||'other';
+      next.set(v.vehicleId,{lon:v.location.longitude,lat:v.location.latitude,bearing:v.bearing||0,mode,line:v.line?.publicCode||'',dest:v.destinationName||''});});
+    animateVehicles(next);
   }catch(e){}finally{vehBusy=false;}
+}
+function animateVehicles(next){
+  cancelAnimationFrame(vehAnim);
+  const from=vehPrev,t0=performance.now(),dur=reduceMotion.matches?0:1200;
+  const frame=t=>{
+    const k=dur?Math.min(1,(t-t0)/dur):1,e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+    const feats=[];
+    next.forEach((v,id)=>{const o=from.get(id);
+      const lon=o?o.lon+(v.lon-o.lon)*e:v.lon,lat=o?o.lat+(v.lat-o.lat)*e:v.lat;
+      feats.push({type:'Feature',geometry:{type:'Point',coordinates:[lon,lat]},properties:{mode:v.mode,bearing:v.bearing,line:v.line,dest:v.dest}});});
+    if(['home','stop'].includes(router.cur.name))setData('vehicles',fc(feats));
+    if(k<1)vehAnim=requestAnimationFrame(frame);else vehPrev=next;
+  };
+  vehAnim=requestAnimationFrame(frame);
 }
 
 /* ---------- Trafikkmeldinger (SIRI SX) ---------- */
@@ -1054,13 +1112,13 @@ function decodePoly(enc){
 let routeAnim=null,routeBounds=null,drawnTrip=null;
 function clearRoute(){
   cancelAnimationFrame(routeAnim);drawnTrip=null;routeBounds=null;
-  setData('route',EMPTY);setData('route-stops',EMPTY);clearPins();
+  setData('route',EMPTY);setData('route-stops',EMPTY);clearPins();stopLive();
 }
 function drawRoute(p){
   if(!p||!mapLoaded)return;
   if(drawnTrip===p){fitRoute();return;}
   clearRoute();drawnTrip=p;setData('vehicles',EMPTY);
-  const legs=[],stops=[],coords=[];let drawn=0;
+  const legs=[],coords=[];let drawn=0;
   const rides=(p.legs||[]).filter(l=>l.mode!=='foot');
   (p.legs||[]).forEach(l=>{
     let pts=null;
@@ -1073,18 +1131,8 @@ function drawRoute(p){
     legs.push({pts,walk:l.mode==='foot',color:modeOf(l.mode).c});coords.push(...pts);
   });
   p.schematic=rides.length>0&&!drawn;
-  const seen=new Set();
-  const addStop=(q,name,time,color,kind,minor)=>{
-    const lat=+q?.latitude,lon=+q?.longitude;if(!lat||!lon)return;
-    const k=lat.toFixed(5)+lon.toFixed(5);if(seen.has(k))return;seen.add(k);
-    stops.push({type:'Feature',geometry:{type:'Point',coordinates:[lon,lat]},properties:{name,time:time||'',color,kind,minor}});
-  };
   rides.forEach((l,i)=>{
-    const c=modeOf(l.mode).c;
-    addStop(l.fromPlace?.quay,l.fromPlace?.name,l.expectedStartTime,c,i?'Bytte':'Påstigning',false);
-    (l.intermediateEstimatedCalls||[]).forEach(s=>addStop(s.quay,s.quay?.name,s.expectedArrivalTime,c,'Stopp underveis',true));
-    addStop(l.toPlace?.quay,l.toPlace?.name,l.expectedEndTime,c,i<rides.length-1?'Bytte':'Avstigning',false);
-    if(i<rides.length-1){const q=l.toPlace?.quay;if(+q?.latitude)addPin(+q.latitude,+q.longitude,`<div class="xfer" style="--c:${c}">${i+1}</div>`);}
+    if(i<rides.length-1){const q=l.toPlace?.quay;if(+q?.latitude)addPin(+q.latitude,+q.longitude,`<div class="xfer" style="--c:${modeOf(l.mode).c}">${i+1}</div>`);}
   });
   const start=state.fromSel?[state.fromSel.lat,state.fromSel.lon]:state.pos;
   if(state.fromSel)addPin(state.fromSel.lat,state.fromSel.lon,'<div class="pin from">A</div>');
@@ -1094,7 +1142,8 @@ function drawRoute(p){
   if(coords.length>=2){
     const b=new maplibregl.LngLatBounds(coords[0],coords[0]);coords.forEach(c=>b.extend(c));routeBounds=b;fitRoute();
   }
-  setData('route-stops',fc(stops));
+  renderRouteStops(p);
+  startLive(p);
   // Tegn linjene inn fra start til mål, etappe for etappe.
   const lens=legs.map(l=>{let s=0;const cum=[0];for(let i=1;i<l.pts.length;i++){s+=Math.hypot(l.pts[i][0]-l.pts[i-1][0],l.pts[i][1]-l.pts[i-1][1]);cum.push(s);}return{cum,total:s};});
   const total=lens.reduce((s,l)=>s+l.total,0)||1;
@@ -1109,6 +1158,205 @@ function drawRoute(p){
   const step=t=>{const k=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-k,3);setData('route',featuresAt(e));if(k<1)routeAnim=requestAnimationFrame(step);};
   routeAnim=requestAnimationFrame(step);
 }
+// Holdeplassene langs ruten med sanntidsklokkeslett. Kalles på nytt når tidene oppdateres.
+function renderRouteStops(p){
+  const stops=[],seen=new Set(),rides=(p.legs||[]).filter(l=>l.mode!=='foot');
+  const add=(q,name,time,color,kind,minor)=>{
+    const lat=+q?.latitude,lon=+q?.longitude;if(!lat||!lon)return;
+    const k=lat.toFixed(5)+lon.toFixed(5);if(seen.has(k))return;seen.add(k);
+    stops.push({type:'Feature',geometry:{type:'Point',coordinates:[lon,lat]},
+      properties:{name:name||'Stopp',time:time||'',clock:time?fmtT(time):'',color,kind,minor}});
+  };
+  rides.forEach((l,i)=>{
+    const c=modeOf(l.mode).c;
+    add(l.fromPlace?.quay,l.fromPlace?.name,l.expectedStartTime,c,i?'Bytte':'Påstigning',false);
+    (l.intermediateEstimatedCalls||[]).forEach(s=>add(s.quay,s.quay?.name,s.expectedArrivalTime,c,'Stopp underveis',true));
+    add(l.toPlace?.quay,l.toPlace?.name,l.expectedEndTime,c,i<rides.length-1?'Bytte':'Avstigning',false);
+  });
+  setData('route-stops',fc(stops));
+}
+
+/* =====================================================================
+   LIVE REISE
+   For hver etappe hentes hele turen (alle stopp med faktiske/forventede
+   tider + geometri). Har operatøren GPS i Enturs kjøretøy-API brukes den;
+   ellers (f.eks. Ruter, som ikke deler posisjoner) beregnes posisjonen langs
+   linjen fra sanntidstidene, og merkes som beregnet.
+   ===================================================================== */
+const VEH_API='https://api.entur.io/realtime/v2/vehicles/graphql';
+const Q_SJ=`query($id:String!){serviceJourney(id:$id){id pointsOnLink{points}
+  estimatedCalls{realtime aimedArrivalTime expectedArrivalTime expectedDepartureTime actualArrivalTime actualDepartureTime aimedDepartureTime
+    quay{id name latitude longitude}}}}`;
+const Q_SJ_CALLS=`query($id:String!){serviceJourney(id:$id){id
+  estimatedCalls{realtime aimedArrivalTime expectedArrivalTime expectedDepartureTime actualArrivalTime actualDepartureTime aimedDepartureTime
+    quay{id name latitude longitude}}}}`;
+const Q_LEG=`query($id:ID!){leg(id:$id){id expectedStartTime expectedEndTime realtime
+  intermediateEstimatedCalls{expectedArrivalTime quay{name latitude longitude}}}}`;
+const live={trip:null,jobs:[],timers:[],raf:0,seq:0};
+const ts=v=>v?new Date(v).getTime():NaN;
+const mPerDeg=lat=>[111320*Math.cos(lat*Math.PI/180),110540];
+function prepPath(pts){ // kumulativ avstand i meter langs linjen
+  const cum=[0];
+  for(let i=1;i<pts.length;i++){const [kx,ky]=mPerDeg(pts[i][1]);
+    cum.push(cum[i-1]+Math.hypot((pts[i][0]-pts[i-1][0])*kx,(pts[i][1]-pts[i-1][1])*ky));}
+  return cum;
+}
+function projectStops(pts,cum,calls){ // finn hvert stopp sin plass langs linjen, alltid fremover
+  let from=0;
+  return calls.map(c=>{
+    const q=c.quay;if(!q)return null;
+    let best=from,bd=Infinity;
+    for(let i=from;i<pts.length;i++){const d=(pts[i][0]-q.longitude)**2+(pts[i][1]-q.latitude)**2;if(d<bd){bd=d;best=i;}}
+    from=best;return cum[best];
+  });
+}
+function pointAt(pts,cum,s){
+  if(s<=0)return{p:pts[0],b:bearingOf(pts[0],pts[1])};
+  const last=cum[cum.length-1];if(s>=last)return{p:pts[pts.length-1],b:bearingOf(pts[pts.length-2],pts[pts.length-1])};
+  let i=cum.findIndex(c=>c>=s);i=Math.max(1,i);
+  const t=(s-cum[i-1])/((cum[i]-cum[i-1])||1),a=pts[i-1],b=pts[i];
+  return{p:[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t],b:bearingOf(a,b)};
+}
+function bearingOf(a,b){if(!a||!b)return 0;const [kx,ky]=mPerDeg(a[1]);return(Math.atan2((b[0]-a[0])*kx,(b[1]-a[1])*ky)*180/Math.PI+360)%360;}
+const arrT=c=>ts(c.actualArrivalTime)||ts(c.expectedArrivalTime)||ts(c.aimedArrivalTime)||depT(c);
+function depT(c){return ts(c.actualDepartureTime)||ts(c.expectedDepartureTime)||ts(c.aimedDepartureTime)||ts(c.actualArrivalTime)||ts(c.expectedArrivalTime);}
+// Hvor er kjøretøyet nå, ut fra tidene? Returnerer posisjon og hvilket stopp det sist passerte.
+function estimate(job,now=Date.now()){
+  const c=job.calls,S=job.stopS;if(!c||c.length<2||!job.pts)return null;
+  if(now<depT(c[0]))return{at:0,s:S[0]??0,state:'start'};
+  for(let i=0;i<c.length-1;i++){
+    const a=arrT(c[i]),d=depT(c[i]),n=arrT(c[i+1]);
+    if(now>=a&&now<d)return{at:i,s:S[i],state:'stop'};
+    if(now>=d&&now<n){const f=(now-d)/((n-d)||1);return{at:i,s:S[i]+(S[i+1]-S[i])*f,state:'moving'};}
+  }
+  return{at:c.length-1,s:S[c.length-1],state:'done'};
+}
+function nearestCallIdx(calls,q,name){
+  if(q&&+q.latitude){let best=-1,bd=Infinity;calls.forEach((c,i)=>{if(!c.quay)return;
+    const d=(c.quay.latitude-q.latitude)**2+(c.quay.longitude-q.longitude)**2;if(d<bd){bd=d;best=i;}});if(best>=0)return best;}
+  return calls.findIndex(c=>c.quay?.name===name);
+}
+async function fetchVehicleGps(sjId){
+  try{
+    const r=await fetchWithTimeout(VEH_API,{method:'POST',headers:{'Content-Type':'application/json','ET-Client-Name':API.client},
+      body:JSON.stringify({query:`{vehicles(serviceJourneyId:"${sjId.replace(/"/g,'')}",maxDataAge:"PT3M"){location{latitude longitude} bearing lastUpdatedEpochSecond}}`})},10000);
+    const v=(await r.json())?.data?.vehicles?.[0];
+    return v&&Number.isFinite(v.location?.latitude)?{lat:v.location.latitude,lon:v.location.longitude,bearing:v.bearing||0,t:(v.lastUpdatedEpochSecond||0)*1000}:null;
+  }catch(e){return null;}
+}
+function stopLive(){
+  live.seq++;live.trip=null;live.timers.forEach(clearInterval);live.timers=[];cancelAnimationFrame(live.raf);
+  live.jobs.forEach(j=>j.marker?.remove());live.jobs=[];
+}
+async function startLive(p){
+  stopLive();live.trip=p;live.fitted=false;const seq=live.seq;
+  const rides=(p.legs||[]).filter(l=>l.mode!=='foot'&&l.serviceJourney?.id);
+  live.jobs=rides.map(l=>({leg:l,sj:l.serviceJourney.id,color:modeOf(l.mode).c,code:l.line?.publicCode||modeOf(l.mode).n}));
+  await Promise.all(live.jobs.map(async j=>{
+    try{const d=await gql(Q_SJ,{id:j.sj});const sj=d.serviceJourney;if(!sj)return;
+      j.calls=sj.estimatedCalls||[];
+      j.pts=sj.pointsOnLink?.points?decodePoly(sj.pointsOnLink.points):j.calls.filter(c=>c.quay).map(c=>[c.quay.longitude,c.quay.latitude]);
+      j.cum=prepPath(j.pts);j.stopS=projectStops(j.pts,j.cum,j.calls);
+      j.board=nearestCallIdx(j.calls,j.leg.fromPlace?.quay,j.leg.fromPlace?.name);
+      j.alight=nearestCallIdx(j.calls,j.leg.toPlace?.quay,j.leg.toPlace?.name);
+      j.gps=await fetchVehicleGps(j.sj);
+    }catch(e){}
+  }));
+  if(seq!==live.seq)return;
+  // Sanntidstider for turen hvert 20. sek, GPS hvert 10. sek, etappene i reisen hvert 30. sek.
+  live.timers.push(setInterval(()=>{if(!document.hidden)live.jobs.forEach(async j=>{
+    try{const d=await gql(Q_SJ_CALLS,{id:j.sj});const c=d.serviceJourney?.estimatedCalls;if(c&&c.length===j.calls?.length)j.calls=c;}catch(e){}});},20000));
+  live.timers.push(setInterval(()=>{if(!document.hidden)live.jobs.forEach(async j=>{j.gps=await fetchVehicleGps(j.sj);});},10000));
+  live.timers.push(setInterval(()=>{if(!document.hidden)refreshLegs(p);},30000));
+  tickLive();
+}
+async function refreshLegs(p){
+  const ids=(p.legs||[]).filter(l=>l.id&&l.mode!=='foot');
+  let changed=false;
+  await Promise.all(ids.map(async l=>{
+    try{const d=await gql(Q_LEG,{id:l.id});const n=d.leg;if(!n)return;
+      if(n.expectedStartTime!==l.expectedStartTime||n.expectedEndTime!==l.expectedEndTime)changed=true;
+      Object.assign(l,{expectedStartTime:n.expectedStartTime,expectedEndTime:n.expectedEndTime,realtime:n.realtime,
+        intermediateEstimatedCalls:n.intermediateEstimatedCalls||l.intermediateEstimatedCalls});
+    }catch(e){}
+  }));
+  if(live.trip!==p)return;
+  if(changed){const legs=p.legs||[];p.expectedStartTime=legs[0]?.expectedStartTime||p.expectedStartTime;p.expectedEndTime=legs[legs.length-1]?.expectedEndTime||p.expectedEndTime;}
+  renderRouteStops(p);
+  if(router.cur.name==='trip')router.refresh();
+}
+function vehicleEl(j){
+  const el=document.createElement('button');el.type='button';el.className='tveh';el.style.setProperty('--c',j.color);
+  el.innerHTML=`<i class="arrow"></i><span>${esc(j.code)}</span>`;
+  el.onclick=e=>{e.stopPropagation();buzz(6);const st=liveText(j);toast(st?st.text:`${modeOf(j.leg.mode).n} ${j.code}`);};
+  return el;
+}
+// Én gang per sekund: flytt kjøretøyene og oppdater statuslinjen.
+let lastTick=0;
+function tickLive(t=performance.now()){
+  if(!live.trip)return;
+  live.raf=requestAnimationFrame(tickLive);
+  if(t-lastTick<1000)return;lastTick=t;
+  const now=Date.now();
+  live.jobs.forEach(j=>{
+    if(!j.pts||j.pts.length<2)return;
+    const e=estimate(j,now);
+    const endT=ts(j.leg.expectedEndTime);
+    const visible=e&&e.state!=='done'&&now<endT+60000&&now>depT(j.calls[0])-30*60000;
+    if(!visible){j.marker?.remove();j.marker=null;return;}
+    let lngLat,bearing,gps=false;
+    if(j.gps&&now-j.gps.t<120000){lngLat=[j.gps.lon,j.gps.lat];bearing=j.gps.bearing;gps=true;}
+    else{const pt=pointAt(j.pts,j.cum,e.s);lngLat=pt.p;bearing=pt.b;}
+    if(!j.marker){j.el=vehicleEl(j);j.marker=new maplibregl.Marker({element:j.el,rotationAlignment:'viewport'}).setLngLat(lngLat).addTo(map);
+      // Første gang: ta med kjøretøyet i utsnittet hvis det er på vei mot deg utenfor ruten.
+      if(!live.fitted&&routeBounds&&!routeBounds.contains(lngLat)&&now<depT(j.calls[j.board]||j.calls[0])){
+        live.fitted=true;routeBounds.extend(lngLat);fitRoute();}}
+    else tweenLngLat(j.marker,lngLat,900);
+    j.el.classList.toggle('est',!gps);j.el.classList.toggle('waiting',e.state==='start');
+    j.el.querySelector('.arrow').style.transform=`rotate(${bearing-map.getBearing()}deg)`;
+    j.el.title=gps?'GPS-posisjon':'Beregnet fra sanntid';
+  });
+  updateLiveBox();
+}
+function updateLiveBox(){
+  const box=$('#liveStatus');if(!box)return;
+  const st=liveStatus();box.hidden=!st;
+  if(st)box.innerHTML=`<i class="live"></i><span><b>${st.text}</b><small>${st.sub}</small></span>`;
+  box.onclick=()=>{const j=live.jobs.find(x=>x.marker);if(!j)return;buzz(6);setFollow(false);
+    map.easeTo({center:j.marker.getLngLat(),zoom:Math.max(map.getZoom(),15),duration:reduceMotion.matches?0:700});};
+}
+function tweenLngLat(m,to,dur){
+  const from=m.getLngLat();if(reduceMotion.matches||Math.abs(from.lng-to[0])+Math.abs(from.lat-to[1])>0.05){m.setLngLat(to);return;}
+  const t0=performance.now();
+  const step=t=>{const k=Math.min(1,(t-t0)/dur);m.setLngLat([from.lng+(to[0]-from.lng)*k,from.lat+(to[1]-from.lat)*k]);if(k<1)requestAnimationFrame(step);};
+  requestAnimationFrame(step);
+}
+function liveText(j,now=Date.now()){
+  const c=j.calls;if(!c||j.board<0)return null;
+  const e=estimate(j,now);if(!e)return null;
+  const name=`${modeOf(j.leg.mode).n} ${j.code}`,src=j.gps&&now-j.gps.t<120000?'GPS':'beregnet fra sanntid';
+  const boardName=c[j.board]?.quay?.name||j.leg.fromPlace?.name,alightName=c[j.alight]?.quay?.name||j.leg.toPlace?.name;
+  const dep=depT(c[j.board]),arr=arrT(c[Math.max(0,j.alight)]);
+  if(now<dep){
+    const away=j.board-e.at-(e.state==='moving'?1:0);
+    const m=Math.max(0,Math.round((dep-now)/60000));
+    const where=e.state==='start'?`starter fra ${esc(c[0].quay?.name||'')} kl. ${fmtT(depT(c[0]))}`:
+      away<=0?`er ved ${esc(boardName)}`:`er ${away} ${plural(away,'stopp','stopp')} unna ${esc(boardName)}`;
+    return{text:`${name} ${where}`,sub:`Går kl. ${fmtT(dep)}${m?` · om ${m} min`:' · nå'} · ${src}`};
+  }
+  if(now<arr){
+    const next=c[Math.min(c.length-1,e.at+1)]?.quay?.name,left=Math.max(0,j.alight-e.at-(e.state==='moving'?0:0));
+    return{text:`Neste stopp: ${esc(next||'')}`,sub:`Gå av ved ${esc(alightName)} kl. ${fmtT(arr)} · ${left} ${plural(left,'stopp','stopp')} igjen · ${src}`};
+  }
+  return null;
+}
+function liveStatus(){
+  const now=Date.now();
+  for(const j of live.jobs){if(ts(j.leg.expectedEndTime)>now){const s=liveText(j,now);if(s)return s;}}
+  const p=live.trip;if(p&&ts(p.expectedEndTime)<now)return{text:'Du skal være fremme',sub:`Ankomst kl. ${fmtT(p.expectedEndTime)}`};
+  return null;
+}
+
 function fitRoute(){
   if(!routeBounds||!mapLoaded)return;
   setFollow(false);
@@ -1126,8 +1374,8 @@ setInterval(()=>{
   const n=router.cur.name;
   if(n==='home')loadDeps();
   if(n==='stop'){const id=router.cur.params.id;loadStopDeps(id).then(()=>{if(router.cur.name==='stop'&&router.cur.params.id===id)router.refresh();});}
-  refreshVehicles();
 },REFRESH_MS);
+setInterval(()=>refreshVehicles(),10000);
 setInterval(()=>{if(!document.hidden&&['home','stop','results'].includes(router.cur.name))router.refresh();},20000);
 setInterval(()=>{if(!document.hidden)loadAlerts();},180000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){loadAlerts();loadDeps(true);refreshVehicles(true);}});
@@ -1138,7 +1386,7 @@ function hideOnboard(){
   const ob=$('#onboard');ob.classList.add('leaving');
   setTimeout(()=>{ob.hidden=true;ob.classList.remove('leaving');},reduceMotion.matches?0:420);
 }
-$('#obAllow').onclick=()=>{buzz(10);hideOnboard();startGeo();};
+$('#obAllow').onclick=()=>{buzz(10);hideOnboard();startGeo();startCompass();};
 $('#obSkip').onclick=()=>{buzz(6);hideOnboard();loadNearby(OSLO[0],OSLO[1]);};
 if(reduceMotion.matches)$('.network .train')?.remove();
 
