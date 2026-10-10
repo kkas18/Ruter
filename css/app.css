@@ -343,6 +343,41 @@ button.titles{text-align:left}
 .live::after{content:'';position:absolute;inset:-4px;border-radius:50%;border:1.5px solid var(--live);opacity:0;animation:live 2.4s var(--ease-out) infinite}
 @keyframes live{0%{transform:scale(.4);opacity:.8}70%,100%{transform:scale(1.2);opacity:0}}
 
+button.dep{width:100%;text-align:left}
+button.dep:active{background:var(--surface-2)}
+
+/* ---------- Turen ---------- */
+.jv-title{display:flex;align-items:center;gap:10px}
+.jv-title>div{min-width:0}
+.jv-walk{display:flex;align-items:center;gap:10px;margin:0 16px 12px;font-size:13.5px;color:var(--ink-2);line-height:1.35}
+.jv-walk .g{color:var(--ink-3)}
+.jv-walk b{color:var(--ink)}
+.jv-sticky{position:sticky;top:0;z-index:3;background:var(--surface);padding-bottom:4px;box-shadow:0 8px 8px -8px rgba(20,25,28,.12)}
+.jv-list{padding:2px 0 4px}
+.jv-stop,.jv-between{display:grid;grid-template-columns:58px 26px 1fr;column-gap:8px;align-items:center;min-height:38px;padding:0 16px;cursor:pointer}
+.jv-stop:active{background:var(--surface-2)}
+.jv-stop time{text-align:right;font-weight:650;font-size:13.5px;font-variant-numeric:tabular-nums}
+.jv-stop time small{display:block;font-size:10.5px;line-height:1}
+.jv-rail{position:relative;align-self:stretch;display:flex;align-items:center;justify-content:center}
+.jv-rail::before{content:'';position:absolute;top:0;bottom:0;width:4px;background:var(--c)}
+.jv-stop:first-child .jv-rail::before{top:50%}
+.jv-stop:last-child .jv-rail::before{bottom:50%}
+.jv-rail i{position:relative;width:12px;height:12px;border-radius:50%;background:var(--surface);border:3px solid var(--c)}
+.jv-name{font-size:14.5px;font-weight:550;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jv-name small{display:inline-block;margin-left:8px;font-size:11px;font-weight:800;padding:2px 7px;border-radius:99px;background:var(--signal);color:var(--on-signal);vertical-align:1px}
+.jv-stop.passed{opacity:.45}
+.jv-stop.passed .jv-rail::before,.jv-between .jv-rail::before{background:color-mix(in srgb,var(--c) 40%,var(--line-strong))}
+.jv-stop.passed .jv-rail i{border-color:var(--line-strong)}
+.jv-stop.mine .jv-name{font-weight:750}
+.jv-stop.mine .jv-rail i{width:16px;height:16px;border-color:var(--ink);background:var(--signal)}
+.jv-between{min-height:30px;cursor:default}
+.jv-between .jv-rail i{display:none}
+.jv-note{font-size:12px;color:var(--ink-3);font-weight:600}
+.jv-veh{position:absolute;z-index:2;display:grid;place-items:center;min-width:30px;height:22px;padding:0 6px;border-radius:11px;background:var(--c);color:#fff;
+  font:800 11.5px var(--font);font-style:normal;border:2px solid var(--surface);box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.jv-veh.moving{animation:jvBob 1.6s ease-in-out infinite}
+@keyframes jvBob{50%{transform:translateY(3px)}}
+
 /* ---------- Søk ---------- */
 .route-card{position:relative;flex:1;border-radius:var(--r-m);background:var(--surface-2)}
 .route-field{position:relative;display:flex;align-items:center;padding-left:40px}
@@ -438,6 +473,15 @@ button.titles{text-align:left}
 .alert h4{font-size:15px;font-weight:650;line-height:1.35;letter-spacing:-.01em}
 .alert p{font-size:13.5px;color:var(--ink-2);line-height:1.45;margin-top:4px}
 .alert time{display:block;margin-top:8px;font-size:12px;color:var(--ink-3);font-weight:600}
+
+.alert-lines{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px}
+.alert-lines .badge{min-width:26px;height:20px;font-size:11.5px;--c:var(--ink-2)}
+.alert-lines .badge.dim{--c:var(--surface-3);color:var(--ink-2)}
+.quiet-link{display:flex;align-items:center;gap:10px;width:calc(100% - 32px);margin:18px 16px 4px;padding:12px 14px;border-radius:var(--r-m);
+  background:var(--surface-2);color:var(--ink-2);font-size:14px;font-weight:600;text-align:left}
+.quiet-link span{flex:1}
+.quiet-link em{font-style:normal;font-size:12px;font-weight:700;color:var(--ink-3)}
+.quiet-link .g{color:var(--ink-3)}
 
 /* ---------- Innstillinger ---------- */
 .group{margin:0 16px;border:1px solid var(--line);border-radius:var(--r-l);overflow:hidden}

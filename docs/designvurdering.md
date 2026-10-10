@@ -126,3 +126,45 @@ Dette er fjernet fordi det var en kopi av noe annet:
 - **Bevegelse:** kortet vokser fram fra punktet det hører til, radene glir inn etter tur, og minuttene tikker. Ved oppdateringer animeres ikke radene på nytt.
 - **Kjøretøy:** trykk på et kjøretøy viser det samme kortet, med linje, retning, kilde (GPS eller beregnet) og tid til neste stopp, og kortet følger kjøretøyet mens det kjører.
 - **Avgangskortene på kartet** viser nå en grønn sanntidsprikk foran tider som er live.
+
+### Turen: én bestemt avgang på kartet
+- Trykk på én avgang hvor som helst for å åpne turen: i holdeplasskortet på kartet (hver avgang kan trykkes for seg), i flytekortet, i avgangstavlen, eller direkte på et kjøretøy.
+- **Kartet:** hele ruten i linjens farge. Strekningen kjøretøyet allerede har kjørt, er grå. Alle stopp har navn og live klokkeslett, og kjøretøyet beveger seg langs ruten. Utsnittet tilpasses så kjøretøyet, holdeplassen din og du selv er med.
+- **Arket:**
+  - live status øverst («Buss 30 er 2 stopp unna Jernbanetorget · om 4 min», eller «har passert …»);
+  - hvor langt du har å gå, med «Gå nå» eller «Rekker trolig ikke»;
+  - stopplisten med tider og forsinkelser, der passerte stopp er nedtonet og kjøretøyet er markert «Underveis» i listen.
+- **«Din holdeplass»** er den du trykket på. Knutepunkt matches via foreldrestoppestedet. Åpnes turen fra et kjøretøy, velges stoppet på ruten nærmest deg.
+
+## Runde 4: ny vurdering mot Ruter-appen
+
+Vurdert på 390 px i lys modus, mørk modus og satellitt, med ekte data ved Furuveien (Manglerud) og Jernbanetorget, og sammenlignet med et skjermbilde fra Ruter-appen.
+
+| Område | Før runden | Etter | Kommentar |
+|---|---|---|---|
+| Design | 7,5 | **8** | Ryddig arkstabel og flytekort. Hjem var preget av et generelt varsel om 40 meldinger. |
+| Grafikk | 6,5 | **7,5** | Holdeplassene var anonyme hvite ringer, mens Ruter har tydelige piktogrammer. Nå har vi piktogrammer i linjefargene. |
+| Animasjoner | 7,5 | **7,5** | Gode overganger, tikkende minutter og ruter som tegnes inn. Ikke endret i denne runden. |
+| Appfølelse | 7 | **8** | Trafikkmeldinger og søk ga støy. Nå er begge relevante for der du er. |
+| **Snitt** | **7,1** | **7,75** | |
+
+### Der vi er bedre enn Ruter-appen
+- Avgangskort direkte på kartet ved hver holdeplass, med sanntid.
+- Trykk på én avgang viser akkurat den turen: hele ruten, kjøretøyet og avstanden til deg.
+- Ruter-kjøretøy vises på kartet (beregnet fra sanntid, tydelig merket) og trykkbare.
+- Flyttbart flytekort, hybrid satellittkart og én navigasjon uten faner.
+
+### Der Ruter fortsatt er bedre
+- Billettkjøp og konto, som er utenfor denne appens rolle.
+- Ekte GPS-posisjon for egne kjøretøy. Ruter har den internt, men deler den ikke som åpne data.
+- Moden app testet på mange telefoner, med varsler og universell utforming kvalitetssikret.
+
+### Gjort i denne runden
+1. **Holdeplassikoner:** avrundet kvadrat i linjefargen med hvitt piktogram for buss, trikk, T-bane, tog og båt. Favoritter har en gul stjerne. Zoomet ut vises fargede prikker. Kortene på kartet ligger nå over ikonet.
+2. **Relevante trafikkmeldinger:** meldingene leses for berørte linjer (`Affects/LineRef`). Hjem viser bare meldinger for linjer som går fra holdeplassene rundt deg eller favorittene dine («2 meldinger for linjer rundt deg»). Resten ligger i en rolig lenke nederst. Meldingssiden har to deler, «Rundt deg» og «Øvrige», med linjemerker.
+3. **Søk:** med minst tre treff innen 60 km tas fjerne treff bort, og adresser begrenses til fem.
+
+### Neste steg
+- Test på ekte telefoner (iPhone og Android) ute i trafikken: GPS, kompass og dra-gester.
+- Varsel «Gå nå» for en valgt avgang (krever push via service worker).
+- Gjennomgang av universell utforming: skjermleser, kontrast i satellittmodus og store tekststørrelser.
