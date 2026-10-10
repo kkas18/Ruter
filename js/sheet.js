@@ -21,6 +21,9 @@ function setVisible(px,animate=true){
   sheet.classList.toggle('full',px>=H-2);
   document.body.classList.toggle('sheet-full',px>=H-2);
   document.body.classList.toggle('sheet-tall',px>innerHeight*.62);
+  // Kartet dempes gradvis når arket dras fra halvt til helt opp, så fokuset flyttes til innholdet.
+  const half=Math.round(Math.min(H,innerHeight*.5)),f=wide.matches?0:Math.max(0,Math.min(1,(px-half)/Math.max(1,H-half)));
+  document.documentElement.style.setProperty('--scrim',(f*.26).toFixed(3));
 }
 function snapTo(name,animate=true){
   if(!sheetUI.snaps.includes(name))name=sheetUI.snaps[sheetUI.snaps.length-1];
@@ -74,6 +77,34 @@ addEventListener('resize',()=>snapTo(sheetUI.snap,false));
    SIDER – én stabel, felles tilbake (knapp, Esc, Android-tilbake)
    ===================================================================== */
 const pages={};
+/* ---------- Overganger der ett element følger med ----------
+   Linjeskiltet du trykket på blir overskriften på turen, holdeplassnavnet blir tittelen, og
+   reisetiden blir tittelen på reisen (View Transitions API). Kart og ark holdes levende under
+   overgangen; bare elementet som følger med, flyttes. Uten støtte, eller med «Reduser
+   bevegelse», byttes siden som før. */
+const HERO_TARGET={stop:'#sheetHead .head-title',trip:'#sheetHead .head-title',journey:'#sheetHead .jv-title .badge'};
+const canHero=()=>typeof document.startViewTransition==='function'&&!reduceMotion.matches;
+function heroSwap(update,fromEl,toSel){
+  if(!canHero()||!fromEl?.isConnected){update();return;}
+  const html=document.documentElement;let toEl=null;
+  fromEl.style.viewTransitionName='hero';html.classList.add('vt');
+  const t=document.startViewTransition(()=>{
+    fromEl.style.viewTransitionName='';update();
+    toEl=typeof toSel==='function'?toSel():$(toSel);if(toEl)toEl.style.viewTransitionName='hero';
+  });
+  t.finished.catch(e=>report('overgang',e)).finally(()=>{if(toEl)toEl.style.viewTransitionName='';html.classList.remove('vt');});
+}
+// Tilbake: elementet går samme vei tilbake til der det kom fra.
+function backHero(leaving,to){
+  const head=$('#sheetHead .head-title');
+  if(leaving.name==='stop'&&to.name==='home')
+    return{from:head,to:()=>$(`.stop-card[data-stop="${CSS.escape(leaving.params.id)}"] .top b`)};
+  if(leaving.name==='trip'&&to.name==='results')
+    return{from:head,to:()=>$(`.trip[data-p="${leaving.params.i}"] .t`)};
+  if(leaving.name==='journey'&&to.name==='stop'){const sj=CSS.escape(leaving.params.sj||'');
+    return{from:$('#sheetHead .jv-title .badge'),to:()=>$(`#sheetPage .dep[data-sj="${sj}"] .badge`)||$(`#sheetPage .tl-dot[data-sj="${sj}"]`)};}
+  return null;
+}
 const router={
   cur:{name:'home',params:{}},stack:[],skipPop:0,
   show(name,params={},dir='fwd',keepSnap=false){
@@ -87,7 +118,7 @@ const router={
     else snapTo(sheetUI.snap);
     pages[name].enter?.(params,dir);
     // Ved bytte av side flyttes fokus til overskriften, så skjermlesere leser hvor du er.
-    if(dir)requestAnimationFrame(()=>{const h=$('#sheetHead .head-title');if(h){h.tabIndex=-1;h.focus({preventScroll:true});}});
+    if(dir&&dir!=='init')requestAnimationFrame(()=>{const h=$('#sheetHead .head-title');if(h){h.tabIndex=-1;h.focus({preventScroll:true});}});
     renderStopsLayer();renderVehicleLayer();
     if(name==='home'||name==='stop')setTimeout(()=>{refreshVehicles(true);loadEstVehicles(true);loadViewDeps();},300);
   },
@@ -96,7 +127,7 @@ const router={
     $('#sheetHead').className='sheet-head'+(p.headClass?' '+p.headClass:'');
     $('#sheetHead').innerHTML=p.head(this.cur.params);
     const page=$('#sheetPage');
-    page.className='sheet-page'+(dir==='back'?' back':'');
+    page.className='sheet-page'+(dir==='back'?' back':'')+(dir?'':' static');
     if(dir)void page.offsetWidth;
     page.innerHTML=p.body(this.cur.params);
     if(dir){sheetScroll.scrollTop=0;}else page.style.animation='none';
@@ -108,10 +139,11 @@ const router={
     const st=sheetScroll.scrollTop,p=pages[this.cur.name];
     if(p.update)p.update(this.cur.params);else{this.render(null);sheetScroll.scrollTop=st;}
   },
-  go(name,params={},{replace=false}={}){
+  go(name,params={},{replace=false,hero=null}={}){
     if(name===this.cur.name&&JSON.stringify(params)===JSON.stringify(this.cur.params))return;
     if(!replace){this.stack.push({name:this.cur.name,params:this.cur.params,snap:sheetUI.snap});history.pushState({d:this.stack.length},'');}
-    this.show(name,params,'fwd');
+    const run=()=>this.show(name,params,'fwd');
+    if(hero&&HERO_TARGET[name])heroSwap(run,hero,HERO_TARGET[name]);else run();
   },
   back(){if(this.stack.length)history.back();},
   home(){
@@ -125,7 +157,9 @@ sheetUI.onSnap=()=>{if(router.cur.name==='stop')updateStopCallout(router.cur.par
 addEventListener('popstate',()=>{
   if(router.skipPop){router.skipPop--;return;}
   const prev=router.stack.pop();if(!prev)return;
-  router.show(prev.name,prev.params,'back',true);snapTo(prev.snap||'half');
+  const run=()=>{router.show(prev.name,prev.params,'back',true);snapTo(prev.snap||'half');};
+  const h=backHero(router.cur,prev);
+  if(h)heroSwap(run,h.from,h.to);else run();
 });
 addEventListener('keydown',e=>{if(e.key==='Escape'&&!e.target.closest?.('input'))router.back();});
 const backBtn='<button class="icon-btn back press" type="button" aria-label="Tilbake">'+ico('back')+'</button>';

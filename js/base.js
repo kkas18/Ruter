@@ -76,6 +76,8 @@ async function fetchWithTimeout(url,opts={},ms=15000){
   const now=Date.now();diag.calls.push(now);if(diag.calls[0]<now-3600000)diag.calls=diag.calls.filter(x=>x>now-3600000);
   try{return await fetch(url,{...opts,signal:c.signal});}finally{clearTimeout(t);}
 }
+// Myk oppbremsing for kartbevegelser, samme kurve som arket.
+const easeOut=t=>1-Math.pow(1-t,3);
 const distTo=s=>state.pos?Math.round(geoDist(state.pos,[s.lat,s.lon])):null;
 
 /* ---------- Nettstatus ---------- */
@@ -112,6 +114,17 @@ async function doInstall(){
 }
 
 /* ---------- GraphQL ---------- */
+// Driftsdøgn: en tur som startet før midnatt, hører til gårsdagens dato hos Entur, og uten riktig
+// dato svarer serviceJourney uten stopp. Kjenner vi ikke datoen, prøves i dag og så i går.
+const osloDate=(t=Date.now())=>new Date(t).toLocaleDateString('sv-SE',{timeZone:'Europe/Oslo'});
+async function sjQuery(query,id,date=null){
+  let d=await gql(query,{id,date});
+  if(!date&&!d.serviceJourney?.estimatedCalls?.length){
+    const y=osloDate(Date.now()-864e5),dy=await gql(query,{id,date:y});
+    if(dy.serviceJourney?.estimatedCalls?.length)return{...dy,date:y};
+  }
+  return{...d,date};
+}
 async function gql(query,variables={}){
   try{
     const r=await fetchWithTimeout(API.jp,{method:'POST',
@@ -130,7 +143,7 @@ async function gql(query,variables={}){
 }
 const Q_DEP=`query($id:String!,$n:Int!){stopPlace(id:$id){id name latitude longitude
   estimatedCalls(numberOfDepartures:$n){
-    realtime aimedDepartureTime expectedDepartureTime forBoarding occupancyStatus
+    date realtime aimedDepartureTime expectedDepartureTime forBoarding occupancyStatus
     destinationDisplay{frontText}
     quay{publicCode}
     serviceJourney{id journeyPattern{line{publicCode transportMode}}}}}}`;

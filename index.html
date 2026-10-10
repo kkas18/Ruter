@@ -33,6 +33,7 @@
   <symbol id="i-walk" viewBox="0 0 24 24"><circle cx="13" cy="4.5" r="1.8"/><path d="m10 21 2-6 2.5 2.5V21M8 12.5 9.5 9l3.5-1 2 3.5 2.5 1M12 15l1-7"/></symbol>
   <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4.5 12h14M13 6.5l5.5 5.5-5.5 5.5"/></symbol>
   <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="6" r="3.2"/><path d="M5.5 21v-3.5A4.5 4.5 0 0 1 10 13h4a4.5 4.5 0 0 1 4.5 4.5V21"/></symbol>
+  <symbol id="i-bus" viewBox="0 0 28 18"><rect x="1" y="1" width="26" height="13" rx="3.5" fill="currentColor"/><rect x="4" y="3.5" width="5" height="4" rx="1" fill="var(--surface)"/><rect x="11" y="3.5" width="5" height="4" rx="1" fill="var(--surface)"/><rect x="18" y="3.5" width="6" height="4" rx="1" fill="var(--surface)"/><circle cx="7" cy="15" r="2.4" fill="currentColor" stroke="var(--surface)" stroke-width="1.2"/><circle cx="21" cy="15" r="2.4" fill="currentColor" stroke="var(--surface)" stroke-width="1.2"/></symbol>
   <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11.2 12 4.5l8 6.7M6.5 9.5V19.5h4v-5h3v5h4V9.5"/></symbol>
   <symbol id="i-work" viewBox="0 0 24 24"><rect x="3.5" y="7.5" width="17" height="12" rx="2.5"/><path d="M9 7.5V6a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 6v1.5M3.5 12.5h17"/></symbol>
   <symbol id="i-edit" viewBox="0 0 24 24"><path d="M14.5 5.5l4 4M4.5 19.5l1-4.5L15.8 4.7a1.4 1.4 0 0 1 2 0l1.5 1.5a1.4 1.4 0 0 1 0 2L9 18.5l-4.5 1Z"/></symbol>
@@ -102,6 +103,7 @@
 <!-- ===== Kart: hovedflaten ===== -->
 <main id="app">
   <div id="map" aria-label="Kart"></div>
+  <div class="map-scrim" aria-hidden="true"></div>
 
   <div class="topbar" id="topbar">
     <button class="search-bar press" id="searchBar" type="button">
@@ -121,7 +123,7 @@
   <section class="sheet" id="sheet" aria-label="Innhold">
     <div class="sheet-handle" id="sheetHandle" role="button" tabindex="0" aria-label="Endre høyden på panelet"><span></span></div>
     <header class="sheet-head" id="sheetHead"></header>
-    <div class="sheet-scroll" id="sheetScroll"><div class="sheet-page" id="sheetPage"></div></div>
+    <div class="sheet-scroll" id="sheetScroll"><div class="ptr" id="ptr" aria-hidden="true"><i class="ptr-road"></i><svg class="ptr-bus" viewBox="0 0 28 18"><use href="#i-bus"/></svg></div><div class="sheet-page" id="sheetPage"></div></div>
   </section>
 </main>
 

@@ -130,7 +130,7 @@ function updateStopCallout(id){
   fc$.el?.classList.toggle('compact',compact);
   fcOpen({key:'stop:'+id,lngLat:()=>[s.lon,s.lat],onClose:()=>router.back(),
     bind:el=>el.querySelectorAll('.fc-row').forEach(b=>b.addEventListener('click',()=>{buzz(6);
-      if(b.dataset.sj)router.go('journey',{sj:b.dataset.sj,stop:id});else snapTo('half');}))},
+      if(b.dataset.sj)openJourney(b.dataset.sj,id,b.querySelector('.badge'));else snapTo('half');}))},
     `<header class="fc-head"><span class="fc-grip" aria-hidden="true"></span><div class="fc-title"><b>${esc(s.name)}</b>
       ${anyRt?'<i class="live" title="Sanntid" aria-label="Sanntid"></i>':''}</div>
       <button class="fc-close" type="button" aria-label="Lukk">${ico('x')}</button></header><div class="fc-body">${body}</div>`,

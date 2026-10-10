@@ -4,18 +4,25 @@
 /* ---------- Visuelle byggesteiner ----------
    Appen skal vise heller enn å forklare: én ring for «hvor lenge», ett merke for
    «avvik», tre figurer for «hvor fullt». Teksten ligger i aria-label og title. */
-function ringHtml(min,{win=30,size=44,aria='',clock=null,urg=min}={}){
+// until: tidspunktet ringen teller ned mot. Da tømmes den jevnt hvert sekund (tickRings i main.js).
+function ringHtml(min,{win=30,size=44,aria='',clock=null,urg=min,until=0}={}){
   const r=ringState(min,win,clock,urg);
-  return`<span class="ring-w"><span class="ring ${r.cls}${r.clock?' clock':''}" style="--s:${size}px;--f:${r.f}" data-win="${win}" data-aria="${esc(aria)}" role="img" aria-label="${esc(`${aria} ${r.label}`.trim())}">
+  return`<span class="ring-w"><span class="ring ${r.cls}${r.clock?' clock':''}" style="--s:${size}px;--f:${r.f}" data-win="${win}" data-aria="${esc(aria)}"${until?` data-until="${until}"`:''} role="img" aria-label="${esc(`${aria} ${r.label}`.trim())}">
     <svg viewBox="0 0 44 44" aria-hidden="true"><circle class="trk" cx="22" cy="22" r="19"/><circle class="val" cx="22" cy="22" r="19" pathLength="100"/></svg>
     <b>${r.txt}</b><small>${r.unit}</small></span><em class="ring-lab" aria-hidden="true">${esc(ringWord(aria.toLowerCase(),min))}</em></span>`;
+}
+function breathe(el){
+  el.classList.remove('breathe');void el.offsetWidth;el.classList.add('breathe');
+  el.addEventListener('animationend',()=>el.classList.remove('breathe'),{once:true});
 }
 // Oppdater en ring på stedet, så fyll, farge og tall glir over i stedet for å blinke.
 function setRing(el,min,clock=null,urg=min){
   if(!el)return;
   const w=el.closest('.ring-w');el=el.classList.contains('ring')?el:el.querySelector('.ring');
-  const r=ringState(min,+el.dataset.win||30,clock,urg),b=el.querySelector('b');
-  el.className=`ring ${r.cls}${r.clock?' clock':''}`;el.style.setProperty('--f',String(r.f));
+  const r=ringState(min,+el.dataset.win||30,clock,urg),b=el.querySelector('b'),wasGo=el.classList.contains('go'),keep=el.classList.contains('breathe');
+  el.className=`ring ${r.cls}${r.clock?' clock':''}${keep?' breathe':''}`;el.style.setProperty('--f',String(r.f));
+  // Når det blir «gå nå», puster ringen to ganger. Bare ved overgangen, aldri i løkke.
+  if(r.cls==='go'&&!wasGo&&min>-1)breathe(el);
   if(b.textContent!==r.txt){b.textContent=r.txt;b.classList.remove('tick');void b.offsetWidth;b.classList.add('tick');}
   el.querySelector('small').textContent=r.unit;
   el.setAttribute('aria-label',`${el.dataset.aria||''} ${r.label}`.trim());
@@ -83,7 +90,7 @@ function stopTimeline(s,rows,{compact=false,maxLanes=compact?2:6,width=0}={}){
       ${dots.map(({r,x:xi,more})=>{const m=Math.max(0,minUntil(r.exp)),late=r.exp-r.aimed>60000;
         const lab=`${modeOf(r.mode).n} ${r.pub} mot ${r.dest}, ${m<=0?'nå':`om ${m} min`}${late?', forsinket':''}${r.rt?'':', rutetid'}${more.length?`, og ${more.length} til rett etter`:''}`;
         return`${late?`<span class="tl-late" data-sj="${esc(r.sj||'')}" style="left:${x(r.aimed)}%;width:${xi-x(r.aimed)}%"></span>`:''}<${tag} class="tl-dot${r.rt?'':' sched'}${m<walk?' miss':''}"${tag==='button'?' type="button"':''}
-          style="left:${xi}%" data-sj="${esc(r.sj||'')}" aria-label="${esc(lab)}">${m<=0?'nå':m}${more.length?`<sup>+${more.length}</sup>`:''}</${tag}>`;}).join('')}</div></div>`;
+          style="left:${xi}%" data-sj="${esc(r.sj||'')}" data-exp="${r.exp}" aria-label="${esc(lab)}">${m<=0?'nå':m}${more.length?`<sup>+${more.length}</sup>`:''}</${tag}>`;}).join('')}</div></div>`;
   };
   const html=`<div class="tl${compact?' tl-compact':''}" role="group" aria-label="Avganger de neste ${W} minuttene">
     ${compact?'':`<div class="tl-axis"><span></span><div>${ticks.map(t=>`<em style="left:${t/W*100}%">${t?t:'nå'}</em>`).join('')}</div></div>`}
@@ -114,15 +121,39 @@ function bindPlaceTiles(root=document){
   $$('[data-place]',root).forEach(b=>b.onclick=()=>{buzz(8);goToPlace(b.dataset.place);});
   $$('[data-pick]',root).forEach(b=>b.onclick=e=>{e.stopPropagation();buzz(6);router.go('search',{pick:b.dataset.pick});});
 }
-// Oppdater en tidslinje på stedet når de samme avgangene fortsatt vises: prikkene glir i stedet for å hoppe.
-const tlSig=el=>[...el.querySelectorAll('.tl-lane')].map(l=>`${l.dataset.k}:${[...l.querySelectorAll('.tl-dot,.tl-late')].map(d=>d.className.split(' ')[0]+d.dataset.sj).join(',')}`).join('|')
-  +(el.querySelector('.tl-axis')?.textContent||'')+(el.querySelector('.tl-legend,.tl-compact>.tl-more')?'+':'');
+// Oppdater en tidslinje på stedet når de samme avgangene fortsatt vises: prikkene glir i stedet for
+// å hoppe. Blir en avgang forsinket, lyser prikken kort opp i rødt og forsinkelsen vokser fram fra
+// planlagt tid; kommer den tidligere, lyser den grønt. Én gang per endring, aldri i løkke.
+const tlSig=el=>[...el.querySelectorAll('.tl-lane')].map(l=>`${l.dataset.k}:${[...l.querySelectorAll('.tl-dot')].map(d=>d.dataset.sj).join(',')}`).join('|')
+  +(el.querySelector('.tl-axis')?.textContent||'')+(el.querySelector('.tl-legend,.tl-compact>.tl-more')?'+':'')+(el.querySelector('.tl-walk')?'w':'');
+function copyEl(e,m){
+  e.style.cssText=m.style.cssText;e.className=m.className;
+  if(e.innerHTML!==m.innerHTML)e.innerHTML=m.innerHTML;
+  const al=m.getAttribute('aria-label');if(al)e.setAttribute('aria-label',al);
+}
+function flash(e,cls){
+  e.classList.remove('flash-late','flash-early');void e.offsetWidth;e.classList.add(cls);
+  e.addEventListener('animationend',()=>e.classList.remove(cls),{once:true});
+}
 function morphTl(o,n){
   if(!o||!n)return;
   if(!o.querySelector('.tl')||tlSig(o)!==tlSig(n)){o.innerHTML=n.innerHTML;return;}
-  const parts='.tl-dot,.tl-late,.tl-walk,.tl-dest,.tl-legend,.tl-more',od=$$(parts,o),nd=$$(parts,n);
-  od.forEach((e,i)=>{const m=nd[i];if(!m)return;e.style.cssText=m.style.cssText;e.className=m.className;
-    if(e.innerHTML!==m.innerHTML)e.innerHTML=m.innerHTML;const al=m.getAttribute('aria-label');if(al)e.setAttribute('aria-label',al);});
+  const parts='.tl-walk,.tl-dest,.tl-legend,.tl-compact>.tl-more',np=$$(parts,n);
+  $$(parts,o).forEach((e,i)=>{if(np[i])copyEl(e,np[i]);});
+  const nl=$$('.tl-lane',n);
+  $$('.tl-lane',o).forEach((L,i)=>{
+    const N=nl[i],nd=$$('.tl-dot',N);
+    $$('.tl-dot',L).forEach((d,k)=>{const m=nd[k],was=+d.dataset.exp,now=+m.dataset.exp;
+      copyEl(d,m);d.dataset.exp=m.dataset.exp;
+      if(was&&now-was>=60000)flash(d,'flash-late');else if(was&&was-now>=60000)flash(d,'flash-early');});
+    // Forsinkelseshaler: de som finnes flyttes, nye vokser fram fra planlagt tid.
+    const plot=$('.tl-plot',L),old=new Map($$('.tl-late',L).map(t=>[t.dataset.sj,t]));
+    $$('.tl-late',N).forEach(m=>{const t=old.get(m.dataset.sj);
+      if(t){t.style.cssText=m.style.cssText;old.delete(m.dataset.sj);return;}
+      const c=m.cloneNode(true),w=c.style.width;c.style.width='0';plot.insertBefore(c,$('.tl-dot',plot));
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{c.style.width=w;}));});
+    old.forEach(t=>t.remove());
+  });
 }
 // Kompakt rad for avganger lenger fram (under tidslinjen): klokkeslett først, minutter dempet.
 function depRowCompact(s,r){
@@ -138,12 +169,12 @@ function miniRow(s,r){
 }
 const upcoming=id=>(state.deps.get(id)?.rows||[]).filter(r=>r.exp>Date.now()-30000);
 // Holdeplasskort på Hjem: samme tidslinje som på holdeplassen, i liten utgave (to retninger).
-function stopCard(s){
+function stopCard(s,i=0){
   const rows=upcoming(s.id),d=distTo(s),fav=favs.some(f=>f.id===s.id),entry=state.deps.get(s.id);
   let body;
   if(!entry)body='<div class="mini"><span class="skel" style="width:32px;height:22px"></span><span class="skel" style="width:70%"></span><span class="skel" style="width:36px"></span></div>';
   else if(!rows.length)body='<div class="mini"><span class="d" style="grid-column:1/-1;color:var(--ink-3)">Ingen avganger den neste timen</span></div>';
   else body=stopTimeline({...s,stale:entry.stale},rows,{compact:true}).html||rows.slice(0,2).map(r=>miniRow(s,r)).join('');
-  return`<button class="stop-card" type="button" data-stop="${esc(s.id)}"><div class="top"><b>${esc(s.name)}</b>
+  return`<button class="stop-card" type="button" data-stop="${esc(s.id)}" style="--i:${i}"><div class="top"><b>${esc(s.name)}</b>
     <span class="dist">${fav?ico('star','fav'):''}${d!=null?`${fmtDist(d)} · ${walkMin(d)} min`:''}</span></div><div class="sc-body">${body}</div></button>`;
 }

@@ -124,6 +124,8 @@ test('ringState: farge etter hastverk, klokkeslett ved lange ventetider',()=>{
   assert.equal(C.ringState(4,30,null).cls,'soon');
   assert.equal(C.ringState(12,30,null).cls,'');
   assert.equal(C.ringState(12,30,null,1).cls,'go','hastverk kan styres av gangtid, ikke bare tallet');
+  assert.equal(C.ringState(4.5,30,null).f,.15,'ringen tømmes jevnt, ikke ett minutt av gangen');
+  assert.equal(C.ringState(-2,30,null).f,0);
   const far=C.ringState(120,30,'20:00');assert.equal(far.txt,'20:00');assert.equal(far.f,1);
   assert.equal(C.ringWord('gå om',0),'gå');assert.equal(C.ringWord('gå av om',3),'gå av om');
 });
