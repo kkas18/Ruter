@@ -111,3 +111,10 @@ Dette er fjernet fordi det var en kopi av noe annet:
   - linjegeometrien caches per rutemønster;
   - maks 70 turer om gangen.
 - Posisjonene regnes ut på nytt flere ganger i sekundet, så kjøretøyene glir langs linjen.
+
+### Avganger direkte på kartet
+- **Fra gatenivå (zoom 15,3)** får hver holdeplass med avganger et lite kort med navn og de tre neste avgangene (linjemerke og minutter, «nå» i gult). Holdeplasser uten avganger viser bare prikk og navn.
+- **Én forespørsel** (`stopPlacesByBbox` med `estimatedCalls`) henter avgangene for hele utsnittet. Den oppdateres hvert 30. sekund og når kartet flyttes, og minuttene telles ned hvert 20. sekund.
+- **Kortene er kartsymboler**, så kartet selv sorterer bort kort som ville overlappet. Stasjoner og favoritter vinner, og kjøretøy blokkerer ikke kortene.
+- **Trykk på et kort** åpner avgangstavlen med en gang, fordi tidene allerede er hentet. Den valgte holdeplassen viser den større boblen i stedet for kortet.
+- **Kortene har egne farger** for lys modus, mørk modus og satellitt.
