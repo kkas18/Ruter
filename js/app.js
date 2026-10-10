@@ -290,7 +290,7 @@ map.on('load',()=>{
       .sort((a,b)=>a.d-b.d)[0];
     // Nær en holdeplass vinner den, selv om et kjøretøy står oppå (vanlig ved travle stopp).
     const veh=map.queryRenderedFeatures([[x-4,y-4],[x+4,y+4]],{layers:['vehicles','vehicles-dir']})[0];
-    if(best&&(best.d<=12||!veh)){buzz(6);router.go('stop',{id:best.f.properties.id});return;}
+    if(best&&(best.d<=12||!veh)){buzz(6);router.go('stop',{id:best.f.properties.id,snap:'peek'});return;}
     if(veh)vehClick({features:[veh]});
   });
   const vehClick=e=>{const p=e.features[0]?.properties||{};buzz(6);
@@ -773,21 +773,48 @@ pages.stop={
       `<p class="note">Gangtid er anslått fra luftlinje med litt omvei. «Gå nå» gir to minutters margin.</p>`;
   },
   bind({id}){
+    updateStopCallout(id);
     $('#favBtn').onclick=()=>toggleFav(id);
     $$('#sheetPage .filter').forEach(b=>b.onclick=()=>{buzz(6);stopFilter.set(id,b.dataset.m==='all'?null:b.dataset.m);router.refresh();});
   },
-  leave(){if(mapLoaded)map.setFilter('stop-sel',['==',['get','id'],'']);},
+  leave(){if(mapLoaded)map.setFilter('stop-sel',['==',['get','id'],'']);removeStopCallout();},
   enter({id}){
     if(mapLoaded)map.setFilter('stop-sel',['==',['get','id'],id]);
     const s=findStop(id);
     if(s&&mapLoaded){
       const b=map.getBounds();
-      if(!b.contains([s.lon,s.lat])||map.getZoom()<15)map.easeTo({center:[s.lon,s.lat],zoom:Math.max(map.getZoom(),16),duration:reduceMotion.matches?0:600,padding:mapPadding()});
+      // Holdeplassen litt under midten, så boblen med avganger får plass over den.
+      map.easeTo({center:[s.lon,s.lat],zoom:Math.max(map.getZoom(),15.5),offset:[0,70],duration:reduceMotion.matches?0:600,padding:mapPadding()});
       setFollow(false);
     }
     loadStopDeps(id).then(()=>{if(router.cur.name==='stop'&&router.cur.params.id===id)router.refresh();});
   }
 };
+/* ---------- Avgangsboble på kartet ----------
+   Kjapt overblikk rett ved holdeplassen: de neste avgangene, oppdatert live.
+   Hele tavlen ligger i arket; trykk på boblen løfter arket. */
+let calloutMarker=null,calloutId=null;
+function removeStopCallout(){calloutMarker?.remove();calloutMarker=null;calloutId=null;}
+function updateStopCallout(id){
+  const s=findStop(id);if(!s||!mapLoaded||s.lat==null){removeStopCallout();return;}
+  const entry=state.deps.get(id),rows=upcoming(id).slice(0,4);
+  const body=!entry?'<div class="co-row"><span class="skel" style="width:28px;height:20px"></span><span class="skel"></span><span class="skel" style="width:30px"></span></div>'.repeat(2):
+    rows.length?rows.map(r=>{const m=minUntil(r.exp),md=modeOf(r.mode);
+      const t=m<=0?'<b class="co-now">nå</b>':m<60?`<b>${r.rt?'<i class="live"></i>':''}${m}<small> min</small></b>`:`<b>${fmtT(r.exp)}</b>`;
+      return`<div class="co-row"><span class="badge" style="--c:${md.c}">${esc(r.pub)}</span><span class="co-dest">${esc(r.dest)}</span>${t}</div>`;}).join(''):
+    '<div class="co-empty">Ingen avganger den neste timen</div>';
+  let el=calloutMarker?.getElement();
+  if(!calloutMarker||calloutId!==id){
+    removeStopCallout();
+    el=document.createElement('button');el.type='button';el.className='callout';
+    el.addEventListener('click',e=>{e.stopPropagation();buzz(6);snapTo('half');});
+    calloutMarker=new maplibregl.Marker({element:el,anchor:'bottom',offset:[0,-16]}).setLngLat([s.lon,s.lat]).addTo(map);
+    calloutId=id;
+  }
+  el.innerHTML=`<span class="co-name">${esc(s.name)}</span>${body}`;
+  el.setAttribute('aria-label',`Avganger fra ${s.name}`);
+}
+
 function toggleFav(id){
   buzz(12);
   const s=findStop(id);if(!s)return;
