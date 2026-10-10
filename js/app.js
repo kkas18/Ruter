@@ -179,7 +179,7 @@ function applyOverlayTheme(){
   set('route-stop','circle-color',c.case);set('route-stop-minor','circle-color',c.case);
   set('stops','circle-stroke-color',c.stopRing);
   set('stops','circle-color',['case',['get','fav'],'#FFC800',c.stopFill]);
-  set('stops-label','text-color',c.label);set('stops-label','text-halo-color',c.halo);
+  ['stops-label','stops-label-major'].forEach(l=>{set(l,'text-color',c.label);set(l,'text-halo-color',c.halo);});
   set('acc','fill-color',c.me);set('acc-line','line-color',c.me);
   set('route-stop-label','text-color',c.label);set('route-stop-label','text-halo-color',c.halo);
 }
@@ -234,14 +234,21 @@ map.on('load',()=>{
   ['acc','route','route-stops','stops','vehicles'].forEach(id=>map.addSource(id,{type:'geojson',data:EMPTY}));
   map.addLayer({id:'acc',type:'fill',source:'acc',paint:{'fill-color':c.me,'fill-opacity':.08}});
   map.addLayer({id:'acc-line',type:'line',source:'acc',paint:{'line-color':c.me,'line-opacity':.3,'line-width':1}});
-  map.addLayer({id:'stops',type:'circle',source:'stops',minzoom:12.5,paint:{
-    'circle-radius':['interpolate',['linear'],['zoom'],12.5,2.5,15,5.5,18,8],
+  // Holdeplasser: stasjoner (tog, T-bane, trikk, båt) er større og får navn først;
+  // bussholdeplasser får navn når du zoomer inn. Navn som kolliderer sorteres bort.
+  map.addLayer({id:'stops',type:'circle',source:'stops',minzoom:12,paint:{
+    'circle-radius':['interpolate',['linear'],['zoom'],12,['case',['get','major'],3.5,2],15,['case',['get','major'],6.5,5.5],18,8],
     'circle-color':['case',['get','fav'],'#FFC800',c.stopFill],
-    'circle-stroke-color':c.stopRing,'circle-stroke-width':['interpolate',['linear'],['zoom'],12.5,1.5,16,2.5],
-    'circle-opacity':['interpolate',['linear'],['zoom'],12.5,0,13.2,1],'circle-stroke-opacity':['interpolate',['linear'],['zoom'],12.5,0,13.2,1]}});
-  map.addLayer({id:'stops-label',type:'symbol',source:'stops',minzoom:15.2,layout:{
-    'text-field':['get','name'],'text-font':['Noto Sans Bold'],'text-size':12,'text-offset':[0,1.1],'text-anchor':'top',
-    'text-max-width':9,'text-optional':true},paint:{'text-color':c.label,'text-halo-color':c.halo,'text-halo-width':1.5}});
+    'circle-stroke-color':c.stopRing,'circle-stroke-width':['interpolate',['linear'],['zoom'],12,['case',['get','major'],2,1.2],16,2.5],
+    'circle-opacity':['interpolate',['linear'],['zoom'],12,0,12.5,1],'circle-stroke-opacity':['interpolate',['linear'],['zoom'],12,0,12.5,1]}});
+  const stopLabel=(id,minzoom,filter,size)=>map.addLayer({id,type:'symbol',source:'stops',minzoom,filter,layout:{
+    'text-field':['get','name'],'text-font':['Noto Sans Bold'],'text-size':size,
+    'text-variable-anchor':['top','bottom','right','left'],'text-radial-offset':.85,'text-justify':'auto',
+    'text-max-width':9,'text-optional':true,'symbol-sort-key':['get','rank'],'text-padding':3},
+    paint:{'text-color':c.label,'text-halo-color':c.halo,'text-halo-width':1.6,
+      'text-opacity':['interpolate',['linear'],['zoom'],minzoom,0,minzoom+.4,1]}});
+  stopLabel('stops-label-major',12,['==',['get','major'],true],['interpolate',['linear'],['zoom'],12,11,15,12.5,18,14]);
+  stopLabel('stops-label',13.6,['!=',['get','major'],true],['interpolate',['linear'],['zoom'],13.6,10.5,16,12,18,13]);
   map.addLayer({id:'route-case',type:'line',source:'route',filter:['!',['get','walk']],
     layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':c.case,'line-width':['interpolate',['linear'],['zoom'],10,6,16,12]}});
   map.addLayer({id:'route-line',type:'line',source:'route',filter:['!',['get','walk']],
@@ -344,14 +351,19 @@ function renderAcc(){
     pts.push([lon+r*Math.cos(a)/(111320*Math.cos(lat*Math.PI/180)),lat+r*Math.sin(a)/110540]);}
   setData('acc',fc([{type:'Feature',geometry:{type:'Polygon',coordinates:[pts]},properties:{}}]));
 }
+// Rangering for navn på kartet: favoritter, så tog, T-bane, trikk/båt, så buss.
+function stopProps(s){
+  const fav=favs.some(f=>f.id===s.id),m=s.modes||[];
+  const rank=fav?0:m.includes('rail')?1:m.includes('metro')?2:(m.includes('tram')||m.includes('water'))?3:4;
+  return{id:s.id,name:s.name,fav,rank,major:rank<4};
+}
 function renderStopsLayer(){
   const all=new Map();
   for(const s of state.viewStops.values())all.set(s.id,s);
-  for(const s of state.nearby)all.set(s.id,s);
-  for(const f of favs)all.set(f.id,f);
+  for(const s of [...state.nearby,...favs])all.set(s.id,{...s,modes:s.modes||all.get(s.id)?.modes}); // behold transportmiddel fra utsnittet
   const show=router.cur.name!=='results'&&router.cur.name!=='trip';
   setData('stops',show?fc([...all.values()].map(s=>({type:'Feature',
-    geometry:{type:'Point',coordinates:[+s.lon,+s.lat]},properties:{id:s.id,name:s.name,fav:favs.some(f=>f.id===s.id)}}))):EMPTY);
+    geometry:{type:'Point',coordinates:[+s.lon,+s.lat]},properties:stopProps(s)}))):EMPTY);
 }
 
 /* ---------- Kartpolstring: kartet regner med arket ---------- */
@@ -917,13 +929,14 @@ map.on('moveend',()=>{
   clearTimeout(viewTimer);
   viewTimer=setTimeout(async()=>{
     refreshVehicles(true);loadEstVehicles(true);tickEst();
-    if(map.getZoom()<14.2||router.cur.name==='results'||router.cur.name==='trip')return;
+    if(map.getZoom()<12||router.cur.name==='results'||router.cur.name==='trip')return;
     const c=map.getCenter(),b=map.getBounds();
-    const r=Math.min(1.5,geoDist([b.getNorth(),b.getWest()],[b.getSouth(),b.getEast()])/2000);
     try{
-      const found=await reverseStops(c.lat,c.lng,Math.max(.3,r),40);
-      found.forEach(s=>state.viewStops.set(s.id,s));
-      if(state.viewStops.size>400)state.viewStops=new Map([...state.viewStops].slice(-300));
+      // Alle holdeplasser i utsnittet (navn, posisjon, transportmiddel) i én lett forespørsel.
+      const d=await gql(`{stopPlacesByBbox(minimumLatitude:${b.getSouth()},minimumLongitude:${b.getWest()},maximumLatitude:${b.getNorth()},maximumLongitude:${b.getEast()}){id name latitude longitude transportMode}}`);
+      (d.stopPlacesByBbox||[]).forEach(sp=>{if(!Number.isFinite(sp.latitude))return;
+        state.viewStops.set(sp.id,{id:sp.id,name:sp.name,lat:sp.latitude,lon:sp.longitude,modes:sp.transportMode||[]});});
+      if(state.viewStops.size>2500)state.viewStops=new Map([...state.viewStops].slice(-1500));
       renderStopsLayer();
       // Uten posisjon følger «I nærheten» kartet.
       if(!state.pos&&(!state.nearbyAt||geoDist(state.nearbyAt,[c.lat,c.lng])>500))loadNearby(c.lat,c.lng);
