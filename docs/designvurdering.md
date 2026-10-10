@@ -102,3 +102,12 @@ Dette er fjernet fordi det var en kopi av noe annet:
 ### Din posisjon
 - Ferske GPS-målinger (`maximumAge: 0`). Markøren glir mellom målingene, og nøyaktigheten vises («Rundt deg · ±8 m»).
 - Kompasset viser hvilken vei du peker når du står stille. I fart brukes GPS-retningen.
+
+### Ruter-kjøretøy uten valgt reise
+- Når du zoomer inn (fra zoom 13,8), vises også Ruters busser, trikker og T-baner i hele utsnittet. Posisjonen er beregnet fra sanntid og vises med stiplet ring. Kjøretøy med GPS har hel ring.
+- **Slik holdes datamengden nede:**
+  - én spørring finner turene som skal til holdeplassene i utsnittet (`stopPlacesByBbox`);
+  - hver tur hentes én gang, deretter bare oppdaterte tider hvert 30. sekund;
+  - linjegeometrien caches per rutemønster;
+  - maks 70 turer om gangen.
+- Posisjonene regnes ut på nytt flere ganger i sekundet, så kjøretøyene glir langs linjen.
