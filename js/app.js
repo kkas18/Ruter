@@ -241,6 +241,9 @@ map.on('load',()=>{
     'circle-color':['case',['get','fav'],'#FFC800',c.stopFill],
     'circle-stroke-color':c.stopRing,'circle-stroke-width':['interpolate',['linear'],['zoom'],12,['case',['get','major'],2,1.2],16,2.5],
     'circle-opacity':['interpolate',['linear'],['zoom'],12,0,12.5,1],'circle-stroke-opacity':['interpolate',['linear'],['zoom'],12,0,12.5,1]}});
+  map.addLayer({id:'stop-sel',type:'circle',source:'stops',filter:['==',['get','id'],''],paint:{
+    'circle-radius':['interpolate',['linear'],['zoom'],12,9,16,13],'circle-color':'rgba(255,200,0,0.25)',
+    'circle-stroke-color':'#FFC800','circle-stroke-width':3.5}},'stops');
   const stopLabel=(id,minzoom,filter,size)=>map.addLayer({id,type:'symbol',source:'stops',minzoom,filter,layout:{
     'text-field':['get','name'],'text-font':['Noto Sans Bold'],'text-size':size,
     'text-variable-anchor':['top','bottom','right','left'],'text-radial-offset':.85,'text-justify':'auto',
@@ -277,21 +280,33 @@ map.on('load',()=>{
     'icon-allow-overlap':true,'icon-rotation-alignment':'viewport','icon-size':vehScale,
     'symbol-sort-key':['case',['==',['get','est'],true],1,0]}});
 
-  map.on('click','stops',e=>{const f=e.features[0];if(!f)return;buzz(6);
-    router.go('stop',{id:f.properties.id});});
+  // Trykk nær en holdeplass – eller på navnet – åpner avgangstavlen. Fingre bommer,
+  // så vi leter i en firkant rundt trykket og velger nærmeste holdeplass.
+  map.on('click',e=>{
+    if(router.cur.name==='results'||router.cur.name==='trip')return;
+    const {x,y}=e.point;
+    const hits=map.queryRenderedFeatures([[x-18,y-18],[x+18,y+18]],{layers:['stops','stops-label-major','stops-label']});
+    const best=hits.map(f=>{const pt=map.project(f.geometry.coordinates);return{f,d:Math.hypot(pt.x-x,pt.y-y)-(f.layer.id==='stops'?0:4)};})
+      .sort((a,b)=>a.d-b.d)[0];
+    // Nær en holdeplass vinner den, selv om et kjøretøy står oppå (vanlig ved travle stopp).
+    const veh=map.queryRenderedFeatures([[x-4,y-4],[x+4,y+4]],{layers:['vehicles','vehicles-dir']})[0];
+    if(best&&(best.d<=12||!veh)){buzz(6);router.go('stop',{id:best.f.properties.id});return;}
+    if(veh)vehClick({features:[veh]});
+  });
   const vehClick=e=>{const p=e.features[0]?.properties||{};buzz(6);
     toast(`${modeOf(p.mode).n} ${p.line||''}${p.dest?' mot '+p.dest:''} · ${p.est?'beregnet fra sanntid':'GPS'}`);};
-  map.on('click','vehicles',vehClick);map.on('click','vehicles-dir',vehClick);
+
   map.on('click','route-stop-minor',e=>{const p=e.features[0]?.properties;if(!p)return;
     new maplibregl.Popup({offset:8,closeButton:false}).setLngLat(e.lngLat)
       .setHTML(`<b>${esc(p.name)}</b><br><span style="color:var(--ink-3)">${esc(p.kind)}${p.time?' · kl. '+fmtT(p.time):''}</span>`).addTo(map);});
   map.on('click','route-stop',e=>{const p=e.features[0]?.properties;if(!p)return;
     new maplibregl.Popup({offset:10,closeButton:false}).setLngLat(e.lngLat)
       .setHTML(`<b>${esc(p.name)}</b><br><span style="color:var(--ink-3)">${esc(p.kind)}${p.time?' · kl. '+fmtT(p.time):''}</span>`).addTo(map);});
-  ['stops','vehicles','vehicles-dir','route-stop'].forEach(l=>{
+  ['stops','stops-label','stops-label-major','vehicles','vehicles-dir','route-stop'].forEach(l=>{
     map.on('mouseenter',l,()=>map.getCanvas().style.cursor='pointer');
     map.on('mouseleave',l,()=>map.getCanvas().style.cursor='');});
 
+  map.moveLayer('stop-sel'); // valgt holdeplass øverst, også over kjøretøy
   setBasemap(settings.basemap);paintTheme();renderStopsLayer();renderAcc();map.setPadding(mapPadding());
   // Kildehenvisningen starter sammenslått som en ⓘ-knapp.
   $('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
@@ -761,7 +776,9 @@ pages.stop={
     $('#favBtn').onclick=()=>toggleFav(id);
     $$('#sheetPage .filter').forEach(b=>b.onclick=()=>{buzz(6);stopFilter.set(id,b.dataset.m==='all'?null:b.dataset.m);router.refresh();});
   },
+  leave(){if(mapLoaded)map.setFilter('stop-sel',['==',['get','id'],'']);},
   enter({id}){
+    if(mapLoaded)map.setFilter('stop-sel',['==',['get','id'],id]);
     const s=findStop(id);
     if(s&&mapLoaded){
       const b=map.getBounds();
