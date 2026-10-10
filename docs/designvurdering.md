@@ -209,3 +209,45 @@ Typografi: titler 21 → 19 px, avgangstall 22 → 20 px, sekundærtekst 12–12
 5. **Myke oppdateringer:** tidslinjene på Hjem og holdeplassen, sporene i reiseforslagene og ringene endres på stedet, så prikkene glir mot «nå».
 6. **Store knutepunkt:** holdeplass-siden henter opptil fire avganger per linje og retning den neste timen (Jernbanetorget: over hundre i stedet for 14). Prikker som ville kollidert slås sammen («12⁺¹»), retningen står over linjen så prikkene får hele bredden, og linjer som ikke får plass står i listen.
 7. **Kartet:** kildehenvisningen er en liten, dempet knapp i stedet for en tung svart sirkel.
+
+## Runde 6: profesjonell revisjon og oppfølging
+
+Revisjonen ble strengere enn tidligere runder: i tillegg til design ble tilgjengelighet, nettverk, pålitelighet og kode målt. Alt er testet i Chromium på datamaskinen, ikke på ekte telefon (se `docs/testplan.md`).
+
+| Område | Revisjon | Etter oppfølging | Hva endret seg |
+|---|---|---|---|
+| Design | 8 | **8,5** | Trafikkmeldinger vektes riktig; kartkort og tidslinje sier det samme; tettere Hjem |
+| Grafikk | 8,5 | **9** | Kjøretøy ved knutepunkt legges i ring; «rekker ikke» vises med form |
+| Animasjoner | 8 | **8** | Uendret; må måles på telefon |
+| Appfølelse | 7,5 | **8** | Frakoblet viser hvor gamle dataene er; sparemodus |
+| Tilgjengelighet | 6 | **7,5** | Skjermleser får bare viktige beskjeder; fokus flyttes ved sidebytte; skrift ≥ 11 px; treffflater 44 px |
+| Ytelse og pålitelighet | 7 | **8** | Feil samles og vises i Diagnostikk; 80 % færre kall i sparemodus |
+| Kodekvalitet | 5 | **7** | Delt i 11 filer etter ansvar, ESLint på tvers av filene, 14 enhetstester, CI |
+| **Snitt** | **7,1** | **8,0** | |
+
+### Steg 1: feil brukeren merker
+1. **Gangtid bare i nærheten:** skravering, «Gå nå» og nedtoning brukes bare når holdeplassen er under 20 minutter unna. Jernbanetorget sett fra Furuveien (54 min) er lesbart igjen.
+2. **Trafikkmeldinger vektes:** Entur merker planlagte endringer som `general` og hendelser som `incident`. Planlagte endringer («minuttjusteringer») vises rolig i grått og bare under «Planlagte endringer»; innstilt, stengt og «stopper ikke» får rødt merke. Hjem varsler bare om hendelser.
+3. **Skjermleser:** arket er ikke lenger en «live region». Bare «Gå nå», «bussen kommer» og «Gå av snart» leses opp, én gang. Fokus flyttes til sidetittelen ved sidebytte.
+4. **Kartkortet** viser første avgang du rekker; de du ikke rekker står stiplet i tidslinjen.
+5. **Frakoblet:** «Frakoblet» står i søkefeltet (ikke oppå kartet), og Hjem og holdeplassen sier «data fra kl. 20:58 (3 min siden)».
+
+### Steg 2: tilgjengelighet og kart
+6. Ingen tekst under 11 px (ringens «min», kildemerket, retningsnavn, ringord).
+7. Treffflater på minst 44 px (tidslinjeprikker, lukk-knapp, «5 stopp», Følg, ikonknapper), uten at elementene ser større ut.
+8. Avganger du ikke rekker har stiplet kant og grå tekst, ikke bare gjennomsiktighet.
+9. Hjem: linjeskiltet står én gang når begge retninger er samme linje; lavere rader.
+10. Kart: kjøretøy som står oppå hverandre eller på en holdeplass, legges i en ring rundt punktet. Kort og navn tones ut under søkefeltet i stedet for å kuttes.
+11. Navnet skrives «REIS» overalt.
+
+### Steg 3: kode, tester og drift
+12. `js/app.js` (2 294 linjer) er delt i 11 filer etter ansvar. Ren logikk ligger i `js/core.js` og testes med `node:test` (14 tester: gangtid og «rekker du den», avgangsparsing, polylinjer, posisjon langs linjen, tidslinjens oppsett og sammenslåing, vekting av meldinger, nedtellingsringen).
+13. ESLint leser hva hver fil deklarerer, så ukjente navn og dobbeltdeklarasjoner på tvers av filene fanges. GitHub Actions kjører lint og tester på hver PR.
+14. 15 tomme `catch` er erstattet med `report()`: feil skrives i konsollen og vises under Innstillinger → Diagnostikk sammen med antall kall til Entur siste time, og kan kopieres inn i en feilmelding.
+15. Sparemodus: etter fem minutter uten berøring hentes bakgrunnsdata tre ganger sjeldnere (målt: 16 → 3,3 nettverksforespørsler i minuttet), og første berøring henter alt på nytt. Hjem henter færre avganger per holdeplass (tre per retning), holdeplass-siden hele timen.
+
+### Fortsatt åpent
+- Test på ekte telefoner etter `docs/testplan.md`.
+- Varsel «Gå nå» (etter telefontesten).
+- Teksten er i px og følger ikke systemets tekststørrelse; bør gå over til rem.
+- Ingen automatiske nettlesertester i CI ennå (flytene er testet manuelt med Playwright).
