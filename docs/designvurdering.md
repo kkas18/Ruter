@@ -275,3 +275,25 @@ Vurderingen etter runde 6 sto seg (snitt 8,0). Med blikk på utseende og brukerv
 5. **Reisen:** planlagte endringer er én rolig linje med i-ikon, ikke en boks. Avvik som påvirker reisen har fortsatt varselfarge.
 6. **Hjem:** varselet om avvik er én linje («1 avvik · …»).
 7. **Reisetittelen:** tidsrommet har luft rundt tankestreken («23:52 – 00:32»).
+
+## Runde 8: bevegelse med mening
+
+Prinsipp: bevegelse skal forklare noe – vise sammenheng, bekrefte at noe skjedde, eller vise at noe er live. Ingen dekorasjon, ingen sprett, ingen evige løkker (bortsett fra live-prikken). 150–350 ms med myk oppbremsing. Alt slås av med «Reduser bevegelse».
+
+| Område | Før | Etter | Hvorfor |
+|---|---|---|---|
+| Animasjoner | 8 | **9** | Elementer følger med mellom skjermene; endringer og hastverk vises én gang, når de skjer |
+| Appfølelse | 8,5 | **9** | Ringen tømmes jevnt og kjennes i lomma ved «gå nå»; dra for å oppdatere |
+| Øvrige | | uendret | |
+| **Snitt** | **8,1** | **8,4** | |
+
+### Gjort
+1. **Elementet følger med (View Transitions):** holdeplassnavnet på Hjem blir tittelen på holdeplassen; prikken eller linjeskiltet blir overskriften på turen; reisetiden i et forslag blir tittelen på reisen. Tilbake går samme vei. Kart og ark er levende under overgangen (egne navn, ingen krysstoning), og turens overskrift vises med en gang med linje og retning, så elementet har et sted å lande. Uten støtte i nettleseren byttes siden som før.
+2. **Endringer lyser opp:** blir en avgang forsinket, lyser prikken kort opp i rødt og forsinkelsen vokser fram fra planlagt tid; kommer den tidligere, lyser den grønt. Ringen på reisen gjør det samme hvis tidspunktet flytter seg. Én gang per endring.
+3. **Jevn nedtelling:** ringene tømmes sekund for sekund. Ved «gå nå» puster ringen to ganger, og på reisesiden gir telefonen et lett dobbeltdunk (også når bussen kommer og når du skal gå av).
+4. **Dybde på kartet:** kartet dempes gradvis når arket dras helt opp. Bussen på valgt reise lander mykt. Kartet glir til ruten med samme kurve som arket.
+5. **Dra for å oppdatere:** på Hjem med arket helt oppe; en liten buss følger fingeren og kjører over mens dataene hentes. Oppdater-knappen bruker samme visning.
+6. **Innhold tones inn:** avganger tones inn over plassholderne, og holdeplasskortene kommer etter hverandre når du kommer til Hjem (ikke ved hver oppdatering).
+
+### Funnet underveis
+- Turer som startet før midnatt hørte til gårsdagens driftsdøgn hos Entur, og ga «0 stopp» og en feil like etter midnatt (både på turen og i live-reisen). Driftsdøgnet sendes nå med, og ukjent døgn prøves i dag og så i går.

@@ -30,11 +30,11 @@ pages.home={
     return h;
   },
   bind(){
-    $('#homeRefresh').onclick=()=>{buzz(8);$('#homeRefresh').classList.add('spin');loadDeps(true).finally(()=>$('#homeRefresh')?.classList.remove('spin'));};
+    $('#homeRefresh').onclick=()=>{$('#homeRefresh').classList.add('spin');refreshHome().finally(()=>$('#homeRefresh')?.classList.remove('spin'));};
     $('#alertsNotice')?.addEventListener('click',()=>{buzz(6);router.go('alerts');});
     $('#alertsAll')?.addEventListener('click',()=>{buzz(6);router.go('alerts');});
     $('#geoAsk')?.addEventListener('click',()=>{buzz(8);requestGeoOnce();});
-    $$('#sheetPage [data-stop]').forEach(b=>b.onclick=()=>{buzz(6);router.go('stop',{id:b.dataset.stop});});
+    $$('#sheetPage [data-stop]').forEach(b=>b.onclick=()=>{buzz(6);router.go('stop',{id:b.dataset.stop},{hero:b.querySelector('.top b')});});
     bindPlaceTiles($('#sheetPage'));
   },
   // Tidslinjene oppdateres på stedet; bare nye kort eller endret innhold tegnes på nytt.
@@ -177,7 +177,7 @@ pages.results={
     $('#editTrip').onclick=()=>{buzz(6);router.go('search');};
     $('#tripRetry')?.addEventListener('click',()=>startTripSearch(true));
     $$('#sheetPage .trip[data-p]').forEach(el=>el.onclick=()=>{buzz(10);
-      state.tripIdx=+el.dataset.p;drawRoute(state.trips[state.tripIdx]);router.go('trip',{i:state.tripIdx});});
+      state.tripIdx=+el.dataset.p;drawRoute(state.trips[state.tripIdx]);router.go('trip',{i:state.tripIdx},{hero:el.querySelector('.t')});});
   },
   // Hvert 20. sek: tell ned ringene og flytt kjøretøyene i sporene uten å tegne kortene på nytt.
   update(){
@@ -203,7 +203,7 @@ async function loadTripCalls(){
   const ids=[...new Set(state.trips.map(p=>firstRide(p)).filter(l=>l?.serviceJourney?.id&&minUntil(l.expectedStartTime)<90)
     .map(l=>l.serviceJourney.id))].filter(id=>!(Date.now()-(tripCalls.get(id)?.t||0)<25000));
   if(!ids.length)return;
-  await Promise.all(ids.map(async id=>{try{const d=await gql(Q_SJ_CALLS,{id});const c=d.serviceJourney?.estimatedCalls;if(c?.length)tripCalls.set(id,{calls:c,t:Date.now()});}catch(e){report('loadTripCalls',e);}}));
+  await Promise.all(ids.map(async id=>{try{const d=await sjQuery(Q_SJ_CALLS,id);const c=d.serviceJourney?.estimatedCalls;if(c?.length)tripCalls.set(id,{calls:c,t:Date.now()});}catch(e){report('loadTripCalls',e);}}));
   if(router.cur.name==='results')router.refresh();
 }
 const firstRide=p=>(p.legs||[]).find(l=>l.mode!=='foot');
@@ -236,7 +236,7 @@ function tripCard(p,i,isFastest){
   }).join('')||`<span class="seg walk" style="flex:1">${ico('walk')}<b>${Math.round(p.duration/60)}</b></span>`;
   const leave=minUntil(p.expectedStartTime);
   return`<button class="trip${i===state.tripIdx?' sel':''}" type="button" data-p="${i}" style="animation-delay:${i*50}ms">
-    ${ringHtml(leave,{aria:'Gå om',clock:fmtT(p.expectedStartTime)})}
+    ${ringHtml(leave,{aria:'Gå om',clock:fmtT(p.expectedStartTime),until:ts(p.expectedStartTime)})}
     <div class="trip-main"><div class="trip-top"><span class="t">${fmtT(p.expectedStartTime)}<span>–</span>${fmtT(p.expectedEndTime)}</span>
       <span class="dur">${Math.round(p.duration/60)} min</span>${isFastest?'<span class="fast">Raskest</span>':''}</div>
     <div class="stripe" aria-label="${esc(changesText(Math.max(0,rides.length-1)))}">${segs}</div>
@@ -335,7 +335,8 @@ pages.stop={
   bindRows(id){
     $$('#sheetPage [data-alerts]').forEach(b=>b.onclick=()=>{buzz(6);router.go('alerts');});
     $$('#sheetPage .filter').forEach(b=>b.onclick=()=>{buzz(6);stopFilter.set(id,b.dataset.m==='all'?null:b.dataset.m);router.refresh();});
-    $$('#sheetPage .dep[data-sj],#sheetPage .tl-dot[data-sj]').forEach(b=>b.onclick=()=>{if(!b.dataset.sj)return;buzz(6);router.go('journey',{sj:b.dataset.sj,stop:id});});
+    $$('#sheetPage .dep[data-sj],#sheetPage .tl-dot[data-sj]').forEach(b=>b.onclick=()=>{if(!b.dataset.sj)return;buzz(6);
+      openJourney(b.dataset.sj,id,b.classList.contains('tl-dot')?b:b.querySelector('.badge'));});
   },
   // Oppdatering på stedet: prikkene glir mot «nå» i stedet for å tegnes på nytt.
   update(params){
@@ -356,7 +357,7 @@ pages.stop={
     const s=findStop(id);
     if(s&&mapLoaded){
       // Holdeplassen litt under midten, så boblen med avganger får plass over den.
-      map.easeTo({center:[s.lon,s.lat],zoom:Math.max(map.getZoom(),15.5),offset:[0,70],duration:reduceMotion.matches?0:600,padding:mapPadding()});
+      map.easeTo({center:[s.lon,s.lat],zoom:Math.max(map.getZoom(),15.5),offset:[0,70],duration:reduceMotion.matches?0:700,easing:easeOut,padding:mapPadding()});
       setFollow(false);
     }
     loadStopDeps(id,true).then(()=>{if(router.cur.name==='stop'&&router.cur.params.id===id)router.refresh();});
@@ -366,7 +367,14 @@ pages.stop={
    Én bestemt avgang: hele ruten på kartet (kjørt strekning nedtonet),
    kjøretøyet live, alle stopp med tider, og hvor langt den er fra «din»
    holdeplass – den du trykket på, eller stoppet på ruten nærmest deg. */
-const jv={sj:null,job:null,stopIdx:-1,timer:0,fitted:false,loading:false,error:null};
+const jv={sj:null,job:null,stopIdx:-1,timer:0,fitted:false,loading:false,error:null,hint:null};
+// Åpne en tur fra en avgang ved en holdeplass, med linjeskiltet som følger med opp i overskriften.
+function openJourney(sj,stopId,heroEl){
+  if(!sj)return;
+  const r=(state.deps.get(stopId)?.rows||[]).find(x=>x.sj===sj);
+  jv.hint=r?{sj,code:r.pub,mode:r.mode,dest:r.dest}:null;
+  router.go('journey',r?.date?{sj,stop:stopId,date:r.date}:{sj,stop:stopId},{hero:heroEl});
+}
 function jvTrip(job,stopIdx){ // pseudo-reise så live-motoren (status, kjøretøy) kan gjenbrukes
   const c=job.calls,b=c[stopIdx]||c[0],last=c[c.length-1];
   const q=x=>({name:x.quay?.name,quay:{latitude:x.quay?.latitude,longitude:x.quay?.longitude}});
@@ -374,14 +382,15 @@ function jvTrip(job,stopIdx){ // pseudo-reise så live-motoren (status, kjøret�
     expectedStartTime:new Date(depT(b)).toISOString(),expectedEndTime:new Date(arrT(last)).toISOString()};
   return{legs:[leg],expectedStartTime:leg.expectedStartTime,expectedEndTime:leg.expectedEndTime};
 }
-const Q_SJ_FULL=`query($id:String!){serviceJourney(id:$id){id line{publicCode transportMode} pointsOnLink{points}
-  estimatedCalls{realtime aimedArrivalTime expectedArrivalTime expectedDepartureTime actualArrivalTime actualDepartureTime aimedDepartureTime
+const Q_SJ_FULL=`query($id:String!,$date:Date){serviceJourney(id:$id){id line{publicCode transportMode} pointsOnLink{points}
+  estimatedCalls(date:$date){realtime aimedArrivalTime expectedArrivalTime expectedDepartureTime actualArrivalTime actualDepartureTime aimedDepartureTime
     destinationDisplay{frontText} quay{id name latitude longitude publicCode stopPlace{id parent{id}}}}}}`;
-async function loadJourney(sjId,stopId){
+async function loadJourney(sjId,stopId,date=null){
   jv.loading=true;jv.error=null;
   try{
-    const d=await gql(Q_SJ_FULL,{id:sjId});const sj=d.serviceJourney;if(!sj)throw new Error('Fant ikke turen');
+    const d=await sjQuery(Q_SJ_FULL,sjId,date);const sj=d.serviceJourney;if(!sj)throw new Error('Fant ikke turen');
     const calls=sj.estimatedCalls||[];
+    if(!calls.length)throw new Error('Turen har ingen stopp i dag');
     const pts=sj.pointsOnLink?.points?decodePoly(sj.pointsOnLink.points):calls.filter(c=>c.quay).map(c=>[c.quay.longitude,c.quay.latitude]);
     const cum=prepPath(pts);
     const job={sj:sjId,code:sj.line?.publicCode||'',mode:sj.line?.transportMode||'bus',calls,pts,cum,stopS:projectStops(pts,cum,calls),
@@ -423,12 +432,16 @@ function fitJourney(){
   if(pts.length<2)j.pts.forEach(p=>pts.push(p));
   const b=new maplibregl.LngLatBounds(pts[0],pts[0]);pts.forEach(p=>b.extend(p));
   map.setPadding(mapPadding());setFollow(false);
-  map.fitBounds(b,{padding:{top:50,bottom:50,left:50,right:50},maxZoom:16.5,duration:reduceMotion.matches?0:800});
+  map.fitBounds(b,{padding:{top:50,bottom:50,left:50,right:50},maxZoom:16.5,duration:reduceMotion.matches?0:900,easing:easeOut});
 }
 pages.journey={
   initial:'half',peek:176,
-  head(){
-    const j=jv.job;
+  head(params={}){
+    const j=jv.job,h=jv.hint;
+    // Før turen er hentet: linjeskilt og retning fra avgangen du trykket på, så overgangen har et mål.
+    if(!j&&h&&h.sj===params.sj){const md=modeOf(h.mode);
+      return`${backBtn}<div class="titles jv-title"><span class="badge badge-l" style="--c:${md.c}">${esc(h.code||md.n)}</span>
+        <div><div class="head-title">${esc(h.dest)}</div><div class="head-sub">Henter turen…</div></div></div>`;}
     if(!j)return`${backBtn}<div class="titles"><div class="head-title">Henter turen…</div></div>`;
     const md=modeOf(j.mode);
     return`${backBtn}<div class="titles jv-title"><span class="badge badge-l" style="--c:${md.c}">${esc(j.code||md.n)}</span>
@@ -463,9 +476,9 @@ pages.journey={
     // Hold «her er kjøretøyet» i listen i synsfeltet første gang.
     if(!jv.scrolled){const h=$('#sheetPage .jv-stop.here,#sheetPage .jv-between');if(h){jv.scrolled=true;setTimeout(()=>h.scrollIntoView({block:'center'}),60);}}
   },
-  async enter({sj,stop}){
+  async enter({sj,stop,date}){
     fcClose();clearRoute();clearPins();setData('vehicles',EMPTY);
-    if(jv.sj!==sj||!jv.job){jv.sj=sj;jv.job=null;jv.scrolled=false;jv.loading=true;router.render(null);await loadJourney(sj,stop);}
+    if(jv.sj!==sj||!jv.job){jv.sj=sj;jv.job=null;jv.scrolled=false;jv.loading=true;router.render(null);await loadJourney(sj,stop,date);}
     if(router.cur.name!=='journey'||jv.sj!==sj)return;
     router.render(null);
     if(!jv.job)return;

@@ -52,7 +52,7 @@ function parseCalls(calls){
     const dest=c.destinationDisplay?.frontText||'—';
     const key=c.serviceJourney?.id||`${line.publicCode}|${dest}|${c.aimedDepartureTime}`; // samme tur fra flere plattformer
     if(seen.has(key))return;seen.add(key);
-    rows.push({dest,pub:line.publicCode||'?',mode:line.transportMode||'bus',exp,aimed:new Date(c.aimedDepartureTime).getTime(),rt:!!c.realtime,quay:c.quay?.publicCode,sj:c.serviceJourney?.id||'',occ:c.occupancyStatus});
+    rows.push({dest,pub:line.publicCode||'?',mode:line.transportMode||'bus',exp,aimed:new Date(c.aimedDepartureTime).getTime(),rt:!!c.realtime,quay:c.quay?.publicCode,sj:c.serviceJourney?.id||'',occ:c.occupancyStatus,date:c.date||null});
   });
   return rows.sort((a,b)=>a.exp-b.exp);
 }
@@ -152,7 +152,7 @@ function layoutTimeline(rows,{now=Date.now(),maxLanes=6,gapPct=8}={}){
 // urg: minuttene som bestemmer fargen, når det ikke er selve tallet (f.eks. avgang minus gangtid).
 function ringState(min,win,clock,urg=min){
   const m=Math.max(0,Math.round(min)),u=Math.round(urg),big=m>=100&&clock;
-  return{cls:u<=1?'go':u<=5?'soon':'',f:Math.min(1,m/win),txt:m<=0?'nå':big?clock:String(m),unit:m>0&&!big?'min':'',clock:!!big,
+  return{cls:u<=1?'go':u<=5?'soon':'',f:Math.min(1,Math.max(0,min)/win),txt:m<=0?'nå':big?clock:String(m),unit:m>0&&!big?'min':'',clock:!!big,
     label:m<=0?'nå':big?`kl. ${clock}`:`${m} min`};
 }
 // «gå om» + «nå» leses «gå nå»: ved null faller «om» bort.

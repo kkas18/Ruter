@@ -9,11 +9,11 @@
    linjen fra sanntidstidene, og merkes som beregnet.
    ===================================================================== */
 const VEH_API='https://api.entur.io/realtime/v2/vehicles/graphql';
-const Q_SJ=`query($id:String!){serviceJourney(id:$id){id pointsOnLink{points}
-  estimatedCalls{realtime aimedArrivalTime expectedArrivalTime expectedDepartureTime actualArrivalTime actualDepartureTime aimedDepartureTime
+const Q_SJ=`query($id:String!,$date:Date){serviceJourney(id:$id){id pointsOnLink{points}
+  estimatedCalls(date:$date){realtime aimedArrivalTime expectedArrivalTime expectedDepartureTime actualArrivalTime actualDepartureTime aimedDepartureTime
     quay{id name latitude longitude}}}}`;
-const Q_SJ_CALLS=`query($id:String!){serviceJourney(id:$id){id
-  estimatedCalls{realtime aimedArrivalTime expectedArrivalTime expectedDepartureTime actualArrivalTime actualDepartureTime aimedDepartureTime
+const Q_SJ_CALLS=`query($id:String!,$date:Date){serviceJourney(id:$id){id
+  estimatedCalls(date:$date){realtime aimedArrivalTime expectedArrivalTime expectedDepartureTime actualArrivalTime actualDepartureTime aimedDepartureTime
     quay{id name latitude longitude}}}}`;
 const Q_LEG=`query($id:ID!){leg(id:$id){id expectedStartTime expectedEndTime realtime
   intermediateEstimatedCalls{expectedArrivalTime quay{name latitude longitude}}}}`;
@@ -35,7 +35,7 @@ async function startLive(p){
   const rides=(p.legs||[]).filter(l=>l.mode!=='foot'&&l.serviceJourney?.id);
   live.jobs=rides.map(l=>({leg:l,sj:l.serviceJourney.id,color:modeOf(l.mode).c,code:l.line?.publicCode||modeOf(l.mode).n}));
   await Promise.all(live.jobs.map(async j=>{
-    try{const d=await gql(Q_SJ,{id:j.sj});const sj=d.serviceJourney;if(!sj)return;
+    try{const d=await sjQuery(Q_SJ,j.sj);const sj=d.serviceJourney;if(!sj)return;j.date=d.date;
       j.calls=sj.estimatedCalls||[];
       j.pts=sj.pointsOnLink?.points?decodePoly(sj.pointsOnLink.points):j.calls.filter(c=>c.quay).map(c=>[c.quay.longitude,c.quay.latitude]);
       j.cum=prepPath(j.pts);j.stopS=projectStops(j.pts,j.cum,j.calls);
@@ -47,7 +47,7 @@ async function startLive(p){
   if(seq!==live.seq)return;
   // Sanntidstider for turen hvert 20. sek, GPS hvert 10. sek, etappene i reisen hvert 30. sek.
   live.timers.push(setInterval(()=>{if(!document.hidden)live.jobs.forEach(async j=>{
-    try{const d=await gql(Q_SJ_CALLS,{id:j.sj});const c=d.serviceJourney?.estimatedCalls;if(c&&c.length===j.calls?.length)j.calls=c;}catch(e){report('startLive',e);}});},20000));
+    try{const d=await gql(Q_SJ_CALLS,{id:j.sj,date:j.date||null});const c=d.serviceJourney?.estimatedCalls;if(c&&c.length===j.calls?.length)j.calls=c;}catch(e){report('startLive',e);}});},20000));
   live.timers.push(setInterval(()=>{if(!document.hidden)live.jobs.forEach(async j=>{j.gps=await fetchVehicleGps(j.sj);});},10000));
   live.timers.push(setInterval(()=>{if(!document.hidden)refreshLegs(p);},30000));
   tickLive();
@@ -133,10 +133,15 @@ function updateLiveBox(){
   const tripStart=router.cur.name==='trip'&&live.trip?ts(live.trip.expectedStartTime):NaN,leaveFirst=now<tripStart&&tripStart<st.until;
   const until=leaveFirst?tripStart:st.until,ringEl=box.querySelector('.ring');
   ringEl.dataset.aria=leaveFirst?'Gå om':st.aria||'';
+  // Samme fase, men nytt tidspunkt (bussen er forsinket eller tar inn tid): ringen lyser kort opp.
+  const phase=ringEl.dataset.aria,prevUntil=+ringEl.dataset.until;
+  if(prevUntil&&live.phase===phase&&Math.abs(until-prevUntil)>=60000)flash(ringEl,until>prevUntil?'flash-late':'flash-early');
+  live.phase=phase;ringEl.dataset.until=until;
   setRing(ringEl,(until-now)/60000,fmtT(until));
   // Varsle skjermleseren én gang når det haster: gå nå, bussen kommer, eller gå av ved neste stopp.
   const left=(until-now)/60000,urgentKey=left<=1.5?`${ringEl.dataset.aria}|${Math.round(until/60000)}`:'';
   if(urgentKey&&live.announced!==urgentKey){live.announced=urgentKey;
+    breathe(ringEl);buzz([14,90,14]); // kjennes i lomma: gå nå, bussen kommer, eller gå av snart
     announce((leaveFirst?'Gå nå. ':st.aria==='Gå av om'?'Gå av snart. ':'')+`${st.text}. ${st.sub}`.replace(/<[^>]+>/g,'').replace(/&amp;/g,'&'));}
   box.querySelector('.ls-cap b').innerHTML=st.short;
   const src=box.querySelector('.src');src.textContent=st.gps?'GPS':'≈';src.title=st.gps?'GPS-posisjon fra operatøren':'Beregnet fra sanntid';src.hidden=st.gps==null;
@@ -232,5 +237,5 @@ function fitRoute(){
   if(!routeBounds||!mapLoaded)return;
   setFollow(false);
   map.setPadding(mapPadding()); // fitBounds legger sin egen polstring oppå kartets – hold den liten
-  map.fitBounds(routeBounds,{padding:{top:28,bottom:28,left:28,right:28},maxZoom:16,duration:reduceMotion.matches?0:800});
+  map.fitBounds(routeBounds,{padding:{top:28,bottom:28,left:28,right:28},maxZoom:16,duration:reduceMotion.matches?0:900,easing:easeOut});
 }

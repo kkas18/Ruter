@@ -31,24 +31,31 @@ Automatiske tester (`npm run check`) dekker kjernelogikken, og alle flyter er kj
 - [ ] Om bord: bussen glir langs skinnen i reiselisten, og «Neste: …» stemmer med virkeligheten (noter avvik i stopp).
 - [ ] «Følg»-knappen: kartet følger bussen jevnt til du drar i kartet.
 
-## 5. Kart
+## 5. Bevegelse
+- [ ] Trykk på en holdeplass på Hjem: navnet glir opp og blir tittelen. Tilbake: det glir ned igjen.
+- [ ] Trykk på en prikk i tidslinjen: prikken blir linjeskiltet i turens overskrift.
+- [ ] Ringen tømmes jevnt (ikke i hopp). Ved «gå nå» puster den to ganger, og telefonen gir et lett dobbeltdunk.
+- [ ] Dra arket helt opp: kartet bak dempes litt. Dra ned på Hjem når listen står øverst: en liten buss kjører over, og avgangene oppdateres.
+- [ ] Alt over skal holde 60 bilder i sekundet. Med «Reduser bevegelse» på: ingen glidende overganger, bare vanlige sidebytter.
+
+## 6. Kart
 - [ ] Satellitt av og på: navnene er lesbare i begge.
 - [ ] På et knutepunkt: busser som står på samme sted, legges i en ring og overlapper ikke holdeplassikonet.
 - [ ] Trykk på en buss: turen åpnes, og bussen vises på linjen.
 - [ ] Bilder per sekund: kartet skal panorere og zoome uten hakking. Noter telefonmodell hvis det hakker.
 
-## 6. Nett og batteri
+## 7. Nett og batteri
 - [ ] Flymodus: «Frakoblet» vises i søkefeltet, og Hjem sier «data fra kl. …». Ingen feilmeldinger.
 - [ ] Nett tilbake: alt oppdateres av seg selv innen 30 sekunder.
 - [ ] La appen ligge åpen på Hjem i 30 minutter. Batteriforbruk under 5 % (sparemodus etter fem minutter uten berøring).
 - [ ] Diagnostikk viser antall kall til Entur siste time. Forventet: rundt 600 i aktiv bruk, under 250 i sparemodus.
 
-## 7. Tilgjengelighet
+## 8. Tilgjengelighet
 - [ ] VoiceOver (iPhone) og TalkBack (Android): sidetittelen leses når du bytter side. Avgangene leses med linje, retning og minutter.
 - [ ] Skjermleseren leser **ikke** opp tidslinjene hvert 20. sekund, bare «Gå nå» og «Gå av snart».
 - [ ] Stor tekst i systemet: ingen tekst kuttes slik at mening går tapt.
 - [ ] Redusert bevegelse i systemet: animasjonene slås av.
 - [ ] Alle knapper kan treffes med tommelen uten å bomme (prikkene i tidslinjen, lukk-knappen på kartkortet).
 
-## 8. Når testen er bestått
+## 9. Når testen er bestått
 Neste steg er varselet «Gå nå» (push via service worker), som avhenger av at punkt 4 og 6 fungerer som beskrevet.
