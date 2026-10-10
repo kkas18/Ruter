@@ -126,3 +126,12 @@ Dette er fjernet fordi det var en kopi av noe annet:
 - **Bevegelse:** kortet vokser fram fra punktet det hører til, radene glir inn etter tur, og minuttene tikker. Ved oppdateringer animeres ikke radene på nytt.
 - **Kjøretøy:** trykk på et kjøretøy viser det samme kortet, med linje, retning, kilde (GPS eller beregnet) og tid til neste stopp, og kortet følger kjøretøyet mens det kjører.
 - **Avgangskortene på kartet** viser nå en grønn sanntidsprikk foran tider som er live.
+
+### Turen: én bestemt avgang på kartet
+- Trykk på én avgang hvor som helst for å åpne turen: i holdeplasskortet på kartet (hver avgang kan trykkes for seg), i flytekortet, i avgangstavlen, eller direkte på et kjøretøy.
+- **Kartet:** hele ruten i linjens farge. Strekningen kjøretøyet allerede har kjørt, er grå. Alle stopp har navn og live klokkeslett, og kjøretøyet beveger seg langs ruten. Utsnittet tilpasses så kjøretøyet, holdeplassen din og du selv er med.
+- **Arket:**
+  - live status øverst («Buss 30 er 2 stopp unna Jernbanetorget · om 4 min», eller «har passert …»);
+  - hvor langt du har å gå, med «Gå nå» eller «Rekker trolig ikke»;
+  - stopplisten med tider og forsinkelser, der passerte stopp er nedtonet og kjøretøyet er markert «Underveis» i listen.
+- **«Din holdeplass»** er den du trykket på. Knutepunkt matches via foreldrestoppestedet. Åpnes turen fra et kjøretøy, velges stoppet på ruten nærmest deg.
