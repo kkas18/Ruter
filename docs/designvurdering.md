@@ -76,3 +76,29 @@ Dette er fjernet fordi det var en kopi av noe annet:
 - **Tre høyder** (lav, halv, full) som reagerer på fart.
 - **Felles tilbake:** knapp, Esc, Androids tilbake-tast og «dra ned» på helskjermsider gjør det samme.
 - **Stor skjerm:** arket blir et fast sidepanel.
+
+## Runde 3: satellitt og live reise
+
+**Tilbakemelding:** Kartet skulle ha satellittbilde, holdeplassene skulle vises langs valgt rute, og alt skulle være live: din posisjon og kjøretøyene.
+
+### Satellitt
+- Én kartknapp (lag-ikonet) veksler mellom kart og satellitt. Valget huskes.
+- Satellitt er en hybrid: Esri World Imagery under, sted- og gatenavn i hvit tekst oppå. Ruter og holdeplasser får hvit kontur, så de synes på flybilder.
+
+### Holdeplasser langs ruten
+- Alle stopp på valgt reise vises: store prikker for på, av og bytte, små for stopp underveis.
+- Hvert stopp har navn og sanntidsklokkeslett. Stopp underveis får navn fra zoom 13,5.
+- Tidene oppdateres hvert 30. sekund (`leg(id)` hos Entur), både på kartet og i tidslinjen.
+
+### Live kjøretøy
+- **Ruter deler ikke GPS-posisjoner** via Entur (strømmen for `RUT` er tom). For kjøretøyet du skal med, beregnes posisjonen derfor langs linjen fra faktiske og forventede tider ved hvert stopp. Dette merkes «beregnet fra sanntid» og tegnes med stiplet ring.
+- **Der operatøren har GPS** (Vy, Flytoget, Brakar, Go-Ahead m.fl.), brukes ekte posisjon fra Enturs kjøretøy-API. Den oppdateres hvert 10. sekund og tegnes med hel ring.
+- **Statuslinje i reisen:**
+  - før du går på: «T-bane 1 er 2 stopp unna Jernbanetorget · om 4 min»;
+  - om bord: «Neste stopp … · Gå av ved … kl. …».
+  - Trykk på statuslinjen for å se kjøretøyet på kartet.
+- **Kjøretøylaget på kartet** henter bare utsnittet du ser på, hvert 10. sekund, og lar kjøretøyene gli mellom oppdateringene.
+
+### Din posisjon
+- Ferske GPS-målinger (`maximumAge: 0`). Markøren glir mellom målingene, og nøyaktigheten vises («Rundt deg · ±8 m»).
+- Kompasset viser hvilken vei du peker når du står stille. I fart brukes GPS-retningen.

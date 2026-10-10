@@ -1,4 +1,4 @@
-const CACHE='reis-v15';
+const CACHE='reis-v16';
 const ASSETS=[
   './','./index.html','./manifest.webmanifest','./css/app.css','./js/app.js','./js/mapstyle.js',
   './vendor/fonts/schibsted-grotesk-latin.woff2',
@@ -6,8 +6,8 @@ const ASSETS=[
   './icons/mark.svg','./icons/icon-192.png','./icons/icon-512.png',
   './icons/maskable-512.png','./icons/apple-touch-icon.png'
 ];
-const MAP_HOST='tiles.openfreemap.org';
-const MAX_TILES=1500;
+const MAP_HOSTS=['tiles.openfreemap.org','server.arcgisonline.com'];
+const MAX_TILES=2000;
 
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>Promise.allSettled(ASSETS.map(u=>c.add(u))))
@@ -39,7 +39,7 @@ self.addEventListener('fetch',e=>{
   if(req.method!=='GET')return;
   const url=new URL(req.url);
   if(url.hostname.endsWith('entur.io'))return; // sanntid går alltid rett til nettet
-  if(url.hostname===MAP_HOST){
+  if(MAP_HOSTS.includes(url.hostname)){
     // tilejson peker på dagens flisversjon: hent fersk når mulig.
     if(url.pathname==='/planet')e.respondWith(fetch(req).then(r=>{const c=r.clone();caches.open('reis-map').then(x=>x.put(req,c));return r;}).catch(()=>caches.match(req)));
     else e.respondWith(mapAsset(req));
