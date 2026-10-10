@@ -1,28 +1,28 @@
-const CACHE='reis-v14';
+const CACHE='reis-v15';
 const ASSETS=[
-  './','./index.html','./manifest.webmanifest','./css/app.css','./js/app.js',
+  './','./index.html','./manifest.webmanifest','./css/app.css','./js/app.js','./js/mapstyle.js',
   './vendor/fonts/schibsted-grotesk-latin.woff2',
+  './vendor/maplibre/maplibre-gl.js','./vendor/maplibre/maplibre-gl.css',
   './icons/mark.svg','./icons/icon-192.png','./icons/icon-512.png',
-  './icons/maskable-512.png','./icons/apple-touch-icon.png',
-  './vendor/leaflet/leaflet.js','./vendor/leaflet/leaflet.css'
+  './icons/maskable-512.png','./icons/apple-touch-icon.png'
 ];
-const TILE_HOSTS=['cache.kartverket.no','arcgisonline.com'];
-const MAX_TILES=600;
+const MAP_HOST='tiles.openfreemap.org';
+const MAX_TILES=1500;
 
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>Promise.allSettled(ASSETS.map(u=>c.add(u))))
     .then(()=>self.skipWaiting()));
 });
-
 self.addEventListener('activate',e=>{
   e.waitUntil(caches.keys()
-    .then(ks=>Promise.all(ks.filter(k=>k.startsWith('reis-')&&k!==CACHE&&k!=='reis-tiles').map(k=>caches.delete(k))))
+    .then(ks=>Promise.all(ks.filter(k=>k.startsWith('reis-')&&k!==CACHE&&k!=='reis-map').map(k=>caches.delete(k))))
     .then(()=>self.clients.claim()));
 });
 
-// Kartfliser: cache først, med et enkelt tak så lagringen ikke vokser fritt.
-async function tile(req){
-  const c=await caches.open('reis-tiles');
+// Kartdata (fliser, skrift, tilejson): cache først med et tak, så kartet virker
+// i områder du har sett, også uten nett.
+async function mapAsset(req){
+  const c=await caches.open('reis-map');
   const hit=await c.match(req);
   if(hit)return hit;
   const r=await fetch(req);
@@ -39,7 +39,12 @@ self.addEventListener('fetch',e=>{
   if(req.method!=='GET')return;
   const url=new URL(req.url);
   if(url.hostname.endsWith('entur.io'))return; // sanntid går alltid rett til nettet
-  if(TILE_HOSTS.some(h=>url.hostname.endsWith(h))){e.respondWith(tile(req));return;}
+  if(url.hostname===MAP_HOST){
+    // tilejson peker på dagens flisversjon: hent fersk når mulig.
+    if(url.pathname==='/planet')e.respondWith(fetch(req).then(r=>{const c=r.clone();caches.open('reis-map').then(x=>x.put(req,c));return r;}).catch(()=>caches.match(req)));
+    else e.respondWith(mapAsset(req));
+    return;
+  }
   if(url.origin===self.location.origin){
     // Nett først slik at oppdateringer når fram; cache som reserve når man er frakoblet.
     e.respondWith(fetch(req).then(r=>{

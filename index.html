@@ -12,10 +12,12 @@
 <link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preload" href="vendor/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin>
+<link rel="preconnect" href="https://api.entur.io" crossorigin>
+<link rel="stylesheet" href="vendor/maplibre/maplibre-gl.css">
 <link rel="stylesheet" href="css/app.css">
 </head>
-<body data-view="trip">
+<body data-page="home">
 
 <!-- Ikoner: én strektykkelse, ett rutenett (24 px) -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -38,6 +40,8 @@
   <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></symbol>
+  <symbol id="i-north" viewBox="0 0 24 24"><path d="M12 3 16.5 20 12 16.5 7.5 20Z"/></symbol>
   <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
 </svg>
 
@@ -88,187 +92,41 @@
   </div>
 </div>
 
-<!-- ===== Appbar ===== -->
-<header class="appbar">
-  <div class="brand" id="brand">
-    <svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect class="m-bg" width="64" height="64" rx="15"/><path class="m-line" d="M19 45h9l13-13V19"/><circle class="m-start" cx="19" cy="45" r="4.5"/><circle class="m-end" cx="41" cy="19" r="6"/></svg>
-    reis
+<!-- ===== Kart: hovedflaten ===== -->
+<main id="app">
+  <div id="map" aria-label="Kart"></div>
+
+  <div class="topbar" id="topbar">
+    <button class="search-bar press" id="searchBar" type="button">
+      <svg class="g"><use href="#i-search"/></svg><span>Hvor vil du?</span>
+    </button>
+    <button class="round press" id="menuBtn" type="button" aria-label="Innstillinger"><svg class="g"><use href="#i-gear"/></svg></button>
   </div>
-  <button class="back" id="backBtn" type="button" hidden><svg class="g"><use href="#i-back"/></svg>Mer</button>
-  <div class="appbar-title" id="appbarTitle" aria-hidden="true"></div>
-  <div class="spacer"></div>
-  <button class="net-chip" id="netChip" type="button" hidden>Frakoblet</button>
-  <button class="icon-btn" id="installBtn" type="button" hidden aria-label="Installer appen"><svg class="g"><use href="#i-download"/></svg></button>
-</header>
+
+  <div class="map-ctrl" id="mapCtrl">
+    <button class="round press" id="compassBtn" type="button" aria-label="Pek mot nord" hidden><svg class="g" id="compassIcon"><use href="#i-north"/></svg></button>
+    <button class="round press" id="locateBtn" type="button" aria-label="Vis posisjonen min" aria-pressed="false"><svg class="g"><use href="#i-locate"/></svg></button>
+  </div>
+  <div class="net-chip" id="netChip" role="status" hidden>Frakoblet</div>
+
+  <!-- Arket: én stabel med sider i stedet for faner -->
+  <section class="sheet" id="sheet" aria-live="polite">
+    <div class="sheet-handle" id="sheetHandle" role="button" tabindex="0" aria-label="Endre høyden på panelet"><span></span></div>
+    <header class="sheet-head" id="sheetHead"></header>
+    <div class="sheet-scroll" id="sheetScroll"><div class="sheet-page" id="sheetPage"></div></div>
+  </section>
+</main>
 
 <div class="setup-notice" id="setupNotice" hidden>
   <b>Appen er åpnet direkte fra en mappe.</b><br>
   Reisesøk og posisjon krever at appen åpnes fra en HTTPS-adresse.
 </div>
 
-<main>
-<!-- ===== Reise ===== -->
-<section class="view active" id="view-trip" data-view="trip" aria-labelledby="t-trip">
-  <div class="panel">
-    <div class="page-head"><div><h1 class="page-title" id="t-trip">Reise</h1></div></div>
-    <div class="card route-card">
-      <div class="route-rail" aria-hidden="true"><span class="a"></span><i></i><span class="b"></span></div>
-      <div class="route-field">
-        <label for="fromInput">Fra</label>
-        <input id="fromInput" type="text" placeholder="Min posisjon" autocomplete="off" enterkeyhint="next"
-          role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="fromDrop">
-        <div class="drop" id="fromDrop" role="listbox" hidden></div>
-      </div>
-      <div class="route-field">
-        <label for="toInput">Til</label>
-        <input id="toInput" type="text" placeholder="Hvor vil du?" autocomplete="off" enterkeyhint="search"
-          role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="toDrop">
-        <div class="drop" id="toDrop" role="listbox" hidden></div>
-      </div>
-      <button class="swap press" id="swapBtn" type="button" aria-label="Bytt fra og til"><svg class="g"><use href="#i-swap"/></svg></button>
-    </div>
-    <div class="when-row">
-      <div class="seg" id="timeSeg" role="group" aria-label="Tidspunkt">
-        <button type="button" data-m="now" aria-pressed="true">Nå</button>
-        <button type="button" data-m="dep" aria-pressed="false">Avreise</button>
-        <button type="button" data-m="arr" aria-pressed="false">Ankomst</button>
-      </div>
-      <input class="time-input" type="time" id="timeInput" aria-label="Klokkeslett" hidden>
-    </div>
-
-    <div id="quickTargets" hidden></div>
-
-    <div class="intro" id="tripIntro">
-      <svg viewBox="0 0 200 92" aria-hidden="true">
-        <path class="walk" d="M14 74h22"/>
-        <path class="ln" d="M36 74h30l40-40h50"/>
-        <path class="walk" d="M156 34h28"/>
-        <circle class="tk" cx="66" cy="74" r="4"/><circle class="tk" cx="106" cy="34" r="4"/><circle class="tk" cx="156" cy="34" r="4"/>
-        <circle class="a" cx="14" cy="74" r="7"/><circle class="b" cx="186" cy="34" r="8"/>
-      </svg>
-      <b>Hvor skal du?</b>
-      <p>Søk etter adresse, holdeplass eller sted. Du kan også holde fingeren på kartet for å velge et punkt.</p>
-    </div>
-    <div id="tripResults" aria-live="polite"></div>
-  </div>
-</section>
-
-<!-- ===== Avganger ===== -->
-<section class="view" id="view-dep" data-view="dep" aria-labelledby="t-dep">
-  <div class="panel">
-    <div class="page-head">
-      <div><h1 class="page-title" id="t-dep">Avganger</h1><div class="page-sub" id="updated">Henter avganger…</div></div>
-      <button class="tool press" id="refreshBtn" type="button" aria-label="Oppdater avganger"><svg class="g"><use href="#i-refresh"/></svg></button>
-    </div>
-    <div class="filters" id="modeChips" role="group" aria-label="Filtrer etter transportmiddel"></div>
-    <button class="notice press" id="ticker" type="button" hidden></button>
-    <div class="notice" id="offlineBar" role="status" hidden></div>
-    <div class="fav-row" id="favRow"></div>
-    <div id="stopCards"></div>
-    <p class="foot-note">Gangtid er anslått fra avstand i luftlinje med litt omvei. «Gå nå» gir to minutters margin.</p>
-  </div>
-</section>
-
-<!-- ===== Kart ===== -->
-<section class="view" id="view-map" data-view="map" aria-label="Kart">
-  <div id="map"></div>
-  <div class="map-top">
-    <button class="map-search press" id="searchFab" type="button"><svg class="g"><use href="#i-search"/></svg>Hvor vil du?</button>
-  </div>
-  <div class="route-head" id="routeOverview" hidden aria-live="polite">
-    <button class="icon-btn" id="routeClose" type="button" aria-label="Lukk reisen"><svg class="g"><use href="#i-back"/></svg></button>
-    <div class="txt" id="routeOverviewText"></div>
-    <button class="icon-btn" id="routeFit" type="button" aria-label="Vis hele reisen"><svg class="g"><use href="#i-expand"/></svg></button>
-  </div>
-  <div class="map-pill" id="vehHint" hidden>Zoom inn for å se kjøretøy</div>
-  <div class="map-card" id="mapNotice" hidden role="status"><b>Kartet kan ikke lastes</b>
-    Kartfliser krever nettilgang. Lagrede avganger vises fortsatt under Avganger.
-    <div class="row"><button class="btn btn-line btn-sm press" id="retryMapBtn" type="button">Prøv igjen</button></div>
-  </div>
-  <div class="map-card" id="geoWarn" hidden role="status"></div>
-  <div class="map-side">
-    <button class="map-btn press" id="locateBtn" type="button" aria-label="Følg posisjonen min" aria-pressed="true"><svg class="g"><use href="#i-locate"/></svg></button>
-  </div>
-  <div class="sheet" id="sheet" hidden>
-    <div class="sheet-grip" id="sheetGrip" role="button" tabindex="0" aria-expanded="false" aria-controls="sheetBody">
-      <div class="sheet-head"><h2 id="sheetTitle">I nærheten</h2><span id="sheetDist"></span></div>
-    </div>
-    <div class="sheet-body" id="sheetBody"></div>
-  </div>
-</section>
-
-<!-- ===== Mer ===== -->
-<section class="view" id="view-settings" data-view="settings" aria-labelledby="t-set">
-  <div class="panel set">
-    <div class="page-head"><div><h1 class="page-title" id="t-set">Mer</h1></div></div>
-
-    <div class="card">
-      <button class="list-row press" id="alertsEntry" type="button">
-        <span class="lbl"><b>Trafikkmeldinger</b><small id="alertsEntrySub">Avvik i kollektivtrafikken</small></span>
-        <span class="count" id="alertBadge" hidden>0</span><svg class="g chev"><use href="#i-chev"/></svg>
-      </button>
-    </div>
-
-    <div class="section-label">Favoritter</div>
-    <div class="card" id="favList"></div>
-
-    <div class="section-label">Kart</div>
-    <div class="card">
-      <div class="list-row"><span class="lbl"><b>Karttype</b><small>Ruter vises alltid på gråtonekart</small></span>
-        <select class="sel" id="basemapSelect" aria-label="Karttype"><option value="standard">Gråtone</option><option value="topo">Topografisk</option><option value="fly">Flyfoto</option></select></div>
-      <label class="list-row" for="mapStopsToggle"><span class="lbl"><b>Holdeplasser</b></span><span class="switch"><input type="checkbox" id="mapStopsToggle"><span class="tr"></span></span></label>
-      <label class="list-row" for="mapVehiclesToggle"><span class="lbl"><b>Kjøretøy i sanntid</b><small>Ruter-busser, trikker og T-baner</small></span><span class="switch"><input type="checkbox" id="mapVehiclesToggle"><span class="tr"></span></span></label>
-    </div>
-
-    <div class="section-label">Appen</div>
-    <div class="card">
-      <div class="list-row"><span class="lbl"><b>Utseende</b></span>
-        <div class="seg" id="themeSeg" role="group" aria-label="Utseende">
-          <button type="button" data-t="auto">Auto</button><button type="button" data-t="light">Lys</button><button type="button" data-t="dark">Mørk</button>
-        </div></div>
-      <div class="list-row"><span class="lbl"><b>Gangfart</b><small id="walkVal">4,5 km/t</small></span>
-        <input type="range" id="walkRange" min="3" max="6" step="0.5" aria-label="Gangfart"></div>
-      <div class="list-row"><span class="lbl"><b>Oppdater avganger</b></span>
-        <select class="sel" id="refreshSel" aria-label="Oppdateringsintervall"><option value="30">Hvert 30. sek</option><option value="45">Hvert 45. sek</option><option value="60">Hvert minutt</option></select></div>
-      <label class="list-row" for="vibToggle"><span class="lbl"><b>Vibrasjon</b><small>Kort tilbakemelding ved trykk</small></span><span class="switch"><input type="checkbox" id="vibToggle"><span class="tr"></span></span></label>
-    </div>
-
-    <div class="card" style="margin-top:14px">
-      <button class="list-row press" id="installBtn2" type="button"><span class="lbl"><b>Legg til på hjemskjermen</b><small>Åpnes i fullskjerm som en vanlig app</small></span><svg class="g chev"><use href="#i-chev"/></svg></button>
-      <button class="list-row press" id="resetBtn" type="button"><span class="lbl"><b style="color:var(--late)">Nullstill appen</b><small>Sletter favoritter, nylige mål og innstillinger</small></span></button>
-    </div>
-
-    <div class="about">
-      <svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect class="m-bg" width="64" height="64" rx="15"/><path class="m-line" d="M19 45h9l13-13V19"/><circle class="m-start" cx="19" cy="45" r="4.5"/><circle class="m-end" cx="41" cy="19" r="6"/></svg>
-      <div><b>reis</b><br>Sanntid og reisesøk fra Entur (åpne data, NLOD). Kart © Kartverket, Esri. Uavhengig app, ikke tilknyttet Ruter AS. Billetter selges ikke her.</div>
-    </div>
-  </div>
-</section>
-
-<!-- ===== Trafikkmeldinger ===== -->
-<section class="view" id="view-alerts" data-view="alerts" aria-labelledby="t-alerts">
-  <div class="panel">
-    <div class="page-head">
-      <div><h1 class="page-title" id="t-alerts">Trafikk&shy;meldinger</h1><div class="page-sub" id="alertsUpdated">Henter…</div></div>
-      <button class="tool press" id="alertsRefresh" type="button" aria-label="Oppdater trafikkmeldinger"><svg class="g"><use href="#i-refresh"/></svg></button>
-    </div>
-    <div class="card" id="alertsList"></div>
-  </div>
-</section>
-</main>
-
-<!-- ===== Faner ===== -->
-<nav class="tabbar" aria-label="Hovedmeny"><div>
-  <button type="button" data-go="trip" aria-current="page"><svg class="g"><use href="#i-route"/></svg>Reise</button>
-  <button type="button" data-go="dep"><svg class="g"><use href="#i-clock"/></svg>Avganger</button>
-  <button type="button" data-go="map"><svg class="g"><use href="#i-map"/></svg>Kart</button>
-  <button type="button" data-go="settings"><svg class="g"><use href="#i-more"/></svg>Mer<span class="tab-dot" id="tabDot" hidden></span></button>
-</div></nav>
-
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <noscript><p style="padding:24px">REIS krever JavaScript.</p></noscript>
 
-<script src="vendor/leaflet/leaflet.js"></script>
+<script src="vendor/maplibre/maplibre-gl.js"></script>
+<script src="js/mapstyle.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
