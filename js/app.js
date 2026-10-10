@@ -129,7 +129,7 @@ async function gql(query,variables={}){
 }
 const Q_DEP=`query($id:String!,$n:Int!){stopPlace(id:$id){id name
   estimatedCalls(numberOfDepartures:$n){
-    realtime aimedDepartureTime expectedDepartureTime forBoarding
+    realtime aimedDepartureTime expectedDepartureTime forBoarding occupancyStatus
     destinationDisplay{frontText}
     quay{publicCode}
     serviceJourney{id journeyPattern{line{publicCode transportMode}}}}}}`;
@@ -143,7 +143,7 @@ const Q_TRIP=level=>`query($fl:Float!,$fp:Float!,$tl:Float!,$tp:Float!,$dt:DateT
       fromPlace{name${level<=1?' quay{publicCode latitude longitude}':''}}
       toPlace{name${level<=1?' quay{publicCode latitude longitude}':''}}
       line{publicCode}
-      ${level<=1?'id realtime serviceJourney{id} fromEstimatedCall{destinationDisplay{frontText}}':''}
+      ${level<=1?'id realtime serviceJourney{id} fromEstimatedCall{occupancyStatus destinationDisplay{frontText}}':''}
       ${level<3?`intermediateEstimatedCalls{expectedArrivalTime quay{name${level<=1?' latitude longitude':''}}}`:''}
       ${level===0?'pointsOnLink{points}':''}
     }}}}`;
@@ -668,10 +668,48 @@ addEventListener('popstate',()=>{
 addEventListener('keydown',e=>{if(e.key==='Escape'&&!e.target.closest?.('input'))router.back();});
 const backBtn='<button class="icon-btn back press" type="button" aria-label="Tilbake">'+ico('back')+'</button>';
 
+/* ---------- Visuelle byggesteiner ----------
+   Appen skal vise heller enn å forklare: én ring for «hvor lenge», ett merke for
+   «avvik», tre figurer for «hvor fullt». Teksten ligger i aria-label og title. */
+// Nedtellingsring: tallet i midten, ringen tømmes mot null og skifter farge når det haster.
+function ringState(min,win,clock){
+  const m=Math.max(0,Math.round(min)),big=m>=100&&clock;
+  return{cls:m<=1?'go':m<=5?'soon':'',f:Math.min(1,m/win),txt:m<=0?'nå':big?clock:String(m),unit:m>0&&!big?'min':'',clock:!!big,
+    label:m<=0?'nå':big?`kl. ${clock}`:`${m} min`};
+}
+function ringHtml(min,{win=30,size=44,aria='',clock=null}={}){
+  const r=ringState(min,win,clock);
+  return`<span class="ring ${r.cls}${r.clock?' clock':''}" style="--s:${size}px;--f:${r.f}" data-win="${win}" data-aria="${esc(aria)}" role="img" aria-label="${esc(`${aria} ${r.label}`.trim())}">
+    <svg viewBox="0 0 44 44" aria-hidden="true"><circle class="trk" cx="22" cy="22" r="19"/><circle class="val" cx="22" cy="22" r="19" pathLength="100"/></svg>
+    <b>${r.txt}</b><small>${r.unit}</small></span>`;
+}
+// Oppdater en ring på stedet, så fyll, farge og tall glir over i stedet for å blinke.
+function setRing(el,min,clock=null){
+  if(!el)return;
+  const r=ringState(min,+el.dataset.win||30,clock),b=el.querySelector('b');
+  el.className=`ring ${r.cls}${r.clock?' clock':''}`;el.style.setProperty('--f',String(r.f));
+  if(b.textContent!==r.txt){b.textContent=r.txt;b.classList.remove('tick');void b.offsetWidth;b.classList.add('tick');}
+  el.querySelector('small').textContent=r.unit;
+  el.setAttribute('aria-label',`${el.dataset.aria||''} ${r.label}`.trim());
+}
+// Linjer med trafikkmelding får et lite varselmerke på linjeskiltet.
+function alertFor(code){return state.alerts.find(a=>(a.lines||[]).includes(String(code)));}
+function lineBadge(code,mode,cls='',withAlert=true){
+  const md=modeOf(mode),a=withAlert&&alertFor(code);
+  return`<span class="badge ${cls}${a?' has-alert':''}" style="--c:${md.c}" title="${md.n} ${esc(code)}${a?` – ${esc(a.summary)}`:''}">${esc(code)}</span>`;
+}
+// Belegg fra operatøren (Ruter deler det foreløpig ikke; da vises ingenting).
+const OCC={empty:1,manySeatsAvailable:1,fewSeatsAvailable:2,standingRoomOnly:3,crushedStandingRoomOnly:3,full:3,notAcceptingPassengers:3};
+const OCC_TXT=['','God plass','Få ledige seter','Fullt – ståplass'];
+function occHtml(status){
+  const n=OCC[status];if(!n)return'';
+  return`<span class="occ o${n}" role="img" aria-label="${OCC_TXT[n]}" title="${OCC_TXT[n]}">${ico('person')}${ico('person')}${ico('person')}</span>`;
+}
+
 /* ---------- Avgangsrader ---------- */
 const lastMinutes=new Map();
 function whenHtml(key,r){
-  const m=minUntil(r.exp),delay=Math.round((r.exp-r.aimed)/60000);
+  const m=minUntil(r.exp),delay=fmtT(r.exp)===fmtT(r.aimed)?0:Math.round((r.exp-r.aimed)/60000);
   const prev=lastMinutes.get(key);lastMinutes.set(key,m);
   const tick=prev!=null&&prev!==m?' tick':'';
   const main=m<=0?'<span class="now">nå</span>':m<60?`<span class="n${tick}">${m}<small>min</small></span>`:`<span class="n${tick}">${fmtT(r.exp)}</span>`;
@@ -681,17 +719,40 @@ function whenHtml(key,r){
   return`<div class="when">${main}${sub?`<span class="sub">${sub}</span>`:''}</div>`;
 }
 function depRow(s,r){
-  const md=modeOf(r.mode),dist=distTo(s);
+  const dist=distTo(s);
   const reach=s.stale?null:reachStatus(dist,r.exp);
-  const quay=r.quay?` · ${r.mode==='rail'||r.mode==='metro'?'spor':'plattform'} ${esc(r.quay)}`:'';
-  return`<button class="dep press" type="button" data-sj="${esc(r.sj||'')}" data-stop="${esc(s.id)}"><span class="badge badge-l" style="--c:${md.c}" title="${md.n}">${esc(r.pub)}</span>
-    <span class="dest"><b>${esc(r.dest)}</b><small>${md.n}${quay}${reach?` · <span class="reach ${reach.cls}">${esc(reach.label)}</span>`:''}</small></span>
+  const qn=r.mode==='rail'||r.mode==='metro'?'Spor':'Plattform';
+  const tags=[r.quay?`<span class="quay" title="${qn} ${esc(r.quay)}" aria-label="${qn} ${esc(r.quay)}">${esc(r.quay)}</span>`:'',occHtml(r.occ),
+    reach?`<span class="reach ${reach.cls}">${esc(reach.label)}</span>`:''].filter(Boolean).join('');
+  return`<button class="dep press" type="button" data-sj="${esc(r.sj||'')}" data-stop="${esc(s.id)}">${lineBadge(r.pub,r.mode,'badge-l',false)}
+    <span class="dest"><b>${esc(r.dest)}</b>${tags?`<small>${tags}</small>`:''}</span>
     ${whenHtml(`${s.id}|${r.pub}|${r.dest}|${r.aimed}`,r)}</button>`;
 }
+// Avgangene som tidslinje: én rad per linje og retning, prikkene står der de går.
+// Det skraverte feltet er tiden du trenger for å gå dit – avganger inni det rekker du ikke.
+function stopTimeline(s,rows){
+  const now=Date.now();
+  let W=30;if(rows.filter(r=>r.exp-now<=30*60000).length<3)W=60;
+  const inWin=rows.filter(r=>r.exp-now<=W*60000);if(!inWin.length)return'';
+  const lanes=new Map();
+  inWin.forEach(r=>{const k=`${r.pub}|${r.dest}`;if(!lanes.has(k))lanes.set(k,{pub:r.pub,mode:r.mode,dest:r.dest,rows:[]});lanes.get(k).rows.push(r);});
+  const list=[...lanes.values()].slice(0,6),x=t=>Math.max(0,Math.min(100,(t-now)/(W*60000)*100));
+  const d=distTo(s),walk=d!=null&&!s.stale?walkMin(d):0,wp=Math.min(100,walk/W*100);
+  const step=W===30?10:20,ticks=Array.from({length:W/step+1},(_,i)=>i*step);
+  return`<div class="tl" role="group" aria-label="Avganger de neste ${W} minuttene">
+    <div class="tl-axis"><span></span><div>${ticks.map(t=>`<em style="left:${t/W*100}%">${t?t:'nå'}</em>`).join('')}</div></div>
+    ${list.map(L=>`<div class="tl-lane"><span class="tl-lab">${lineBadge(L.pub,L.mode,'',false)}<small>${esc(L.dest)}</small></span>
+      <div class="tl-plot" style="--c:${modeOf(L.mode).c}">${walk?`<span class="tl-walk" style="width:${wp}%" title="${walk} min å gå"></span>`:''}
+      ${L.rows.map(r=>{const m=Math.max(0,minUntil(r.exp)),late=r.exp-r.aimed>60000;
+        return`${late?`<span class="tl-late" style="left:${x(r.aimed)}%;width:${x(r.exp)-x(r.aimed)}%"></span>`:''}<button class="tl-dot${r.rt?'':' sched'}${m<walk?' miss':''}" type="button"
+          style="left:${x(r.exp)}%" data-sj="${esc(r.sj||'')}" aria-label="${esc(`${modeOf(r.mode).n} ${r.pub} mot ${r.dest}, ${m<=0?'nå':`om ${m} min`}${late?', forsinket':''}${r.rt?'':', rutetid'}`)}">${m<=0?'nå':m}</button>`;}).join('')}</div></div>`).join('')}
+    ${walk?`<div class="tl-legend"><span class="tl-walk-key"></span>${ico('walk')}${walk} min å gå</div>`:''}
+  </div>`;
+}
 function miniRow(s,r){
-  const m=minUntil(r.exp),md=modeOf(r.mode);
+  const m=minUntil(r.exp);
   const t=m<=0?'<span class="m now">nå</span>':m<60?`<span class="m">${r.rt?'<i class="live"></i>':''}${m}<small>min</small></span>`:`<span class="m">${fmtT(r.exp)}</span>`;
-  return`<div class="mini"><span class="badge" style="--c:${md.c}">${esc(r.pub)}</span><span class="d">${esc(r.dest)}</span>${t}</div>`;
+  return`<div class="mini">${lineBadge(r.pub,r.mode,'',false)}<span class="d">${esc(r.dest)}</span>${t}</div>`;
 }
 const upcoming=id=>(state.deps.get(id)?.rows||[]).filter(r=>r.exp>Date.now()-30000);
 function stopCard(s){
@@ -849,25 +910,71 @@ pages.results={
     $$('#sheetPage .trip[data-p]').forEach(el=>el.onclick=()=>{buzz(10);
       state.tripIdx=+el.dataset.p;drawRoute(state.trips[state.tripIdx]);router.go('trip',{i:state.tripIdx});});
   },
-  enter(){if(state.trips.length)drawRoute(state.trips[state.tripIdx]);}
+  // Hvert 20. sek: tell ned ringene og flytt kjøretøyene i sporene uten å tegne kortene på nytt.
+  update(){
+    const cards=$$('#sheetPage .trip[data-p]');
+    if(!cards.length||cards.length!==state.trips.length||state.tripsLoading){router.render(null);return;}
+    cards.forEach(el=>{const p=state.trips[+el.dataset.p],f=firstRide(p);
+      setRing(el.querySelector('.ring'),minUntil(p.expectedStartTime),fmtT(p.expectedStartTime));
+      const ap=el.querySelector('.ap');if(ap&&f)ap.outerHTML=approachHtml(f);});
+  },
+  enter(){if(state.trips.length){drawRoute(state.trips[state.tripIdx]);loadTripCalls();}}
 };
+// Første kjøretøy i hvert reiseforslag: hvor er det nå i forhold til holdeplassen du skal gå på?
+const tripCalls=new Map(); // serviceJourney-id → {calls,t}
+async function loadTripCalls(){
+  const ids=[...new Set(state.trips.map(p=>firstRide(p)).filter(l=>l?.serviceJourney?.id&&minUntil(l.expectedStartTime)<90)
+    .map(l=>l.serviceJourney.id))].filter(id=>!(Date.now()-(tripCalls.get(id)?.t||0)<25000));
+  if(!ids.length)return;
+  await Promise.all(ids.map(async id=>{try{const d=await gql(Q_SJ_CALLS,{id});const c=d.serviceJourney?.estimatedCalls;if(c?.length)tripCalls.set(id,{calls:c,t:Date.now()});}catch(e){}}));
+  if(router.cur.name==='results')router.refresh();
+}
+const firstRide=p=>(p.legs||[]).find(l=>l.mode!=='foot');
+// Som estimate(), men uten kartgeometri: siste passerte stopp og andelen av strekningen videre.
+function callPos(c,now=Date.now()){
+  if(!c||c.length<2)return null;
+  if(now<depT(c[0]))return{at:0,f:0,state:'start'};
+  for(let i=0;i<c.length-1;i++){
+    const a=arrT(c[i]),d=depT(c[i]),n=arrT(c[i+1]);
+    if(now>=a&&now<d)return{at:i,f:0,state:'stop'};
+    if(now>=d&&now<n)return{at:i,f:(now-d)/((n-d)||1),state:'moving'};
+  }
+  return{at:c.length-1,f:0,state:'done'};
+}
+// Lite spor: de siste stoppene før påstigning, med kjøretøyet som glir inn mot din holdeplass.
+const AP_N=8;
+function approachHtml(l){
+  const entry=tripCalls.get(l.serviceJourney?.id),place=esc(placeName(l.fromPlace,''));
+  const plain=`<span class="ap-name">${place}</span>`,planned=`<span class="ap-name">${place} <time>${fmtT(l.expectedStartTime)}</time></span>`;
+  if(!entry)return`<div class="ap">${planned}</div>`;
+  const c=entry.calls,board=nearestCallIdx(c,l.fromPlace?.quay,l.fromPlace?.name),e=callPos(c);
+  if(board<0||!e||e.state==='start'||Date.now()>=depT(c[board])||board-e.at>AP_N*2)return`<div class="ap">${planned}</div>`;
+  const pos=e.state==='start'?-1:e.at+e.f,away=Math.max(0,board-pos),start=board-AP_N;
+  const pct=Math.max(0,Math.min(100,(pos-start)/AP_N*100)),far=pos<start;
+  const n=Math.ceil(away),code=esc(l.line?.publicCode||modeOf(l.mode).n);
+  const label=e.state==='start'?`${modeOf(l.mode).n} ${code} har ikke startet ennå`:n<=0?`${modeOf(l.mode).n} ${code} er ved holdeplassen`:`${modeOf(l.mode).n} ${code} er ${n} ${plural(n,'stopp','stopp')} unna`;
+  const dots=Array.from({length:AP_N},(_,i)=>`<i style="left:${i/AP_N*100}%"${start+i<=pos?' class="on"':''}></i>`).join('');
+  return`<div class="ap" role="img" aria-label="${esc(label)}" title="${esc(label)}"><span class="ap-track" style="--c:${modeOf(l.mode).c}">
+    <span class="ap-rail"><i style="width:${pct}%"></i></span>${dots}<i class="ap-end"></i>
+    <span class="ap-veh${far?' far':''}" style="left:${pct}%">${code}</span></span>${plain}</div>`;
+}
 function tripCard(p,i,isFastest){
   const legs=p.legs||[],rides=legs.filter(l=>l.mode!=='foot'),first=rides[0];
   const total=legs.reduce((s,l)=>s+(l.duration||0),0)||1;
-  const bar=legs.map((l,j)=>`<i class="${l.mode==='foot'?'walk':''}" style="flex:${Math.max(.04,(l.duration||0)/total)};--c:${modeOf(l.mode).c};animation-delay:${i*50+j*40}ms"></i>`).join('');
-  const chips=legs.filter(l=>l.mode!=='foot'||l.duration>=60).map(l=>l.mode==='foot'
-    ?`<span class="walk">${ico('walk')}${Math.round(l.duration/60)}</span>`
-    :`<span class="badge" style="--c:${modeOf(l.mode).c}" title="${modeOf(l.mode).n}">${esc(l.line?.publicCode||modeOf(l.mode).n)}</span>`)
-    .join(ico('chev','sep'));
-  let foot='<span>Gå hele veien</span>';
-  if(first){const m=minUntil(first.expectedStartTime);
-    const when=m<=0?'nå':m<60?`om ${m} min`:`kl. ${fmtT(first.expectedStartTime)}`;
-    foot=`<span>${modeOf(first.mode).n} fra <b>${esc(placeName(first.fromPlace,p.fromName))}</b> <span class="${m<=5?'soon':''}">${when}</span></span>`;}
+  // Stripen er reisen: lengden er tiden, fargen er linjen, tallet står inni.
+  const segs=legs.filter(l=>l.mode!=='foot'||l.duration>=60).map((l,j)=>{
+    const w=Math.max(.06,(l.duration||0)/total),d=`animation-delay:${i*50+j*45}ms`;
+    if(l.mode==='foot')return`<span class="seg walk" style="flex:${w} 1 0;${d}" title="Gå ${Math.round(l.duration/60)} min">${ico('walk')}<b>${Math.round(l.duration/60)}</b></span>`;
+    const md=modeOf(l.mode),code=l.line?.publicCode||md.n,a=alertFor(code);
+    return`<span class="seg ride${a?' has-alert':''}" style="flex:${w} 1 0;--c:${md.c};${d}" title="${md.n} ${esc(code)}${a?` – ${esc(a.summary)}`:''}"><b>${esc(code)}</b></span>`;
+  }).join('')||`<span class="seg walk" style="flex:1">${ico('walk')}<b>${Math.round(p.duration/60)}</b></span>`;
+  const leave=minUntil(p.expectedStartTime);
   return`<button class="trip${i===state.tripIdx?' sel':''}" type="button" data-p="${i}" style="animation-delay:${i*50}ms">
-    <div class="trip-top"><span class="t">${fmtT(p.expectedStartTime)}<span>–</span>${fmtT(p.expectedEndTime)}</span>
-      <span class="dur">${Math.round(p.duration/60)} min${isFastest?'<span class="fast">Raskest</span>':''}</span></div>
-    <div class="bar" aria-hidden="true">${bar}</div><div class="legs">${chips||'<span class="walk">Gange</span>'}</div>
-    <div class="trip-foot">${foot}<span>${changesText(Math.max(0,rides.length-1))}</span></div></button>`;
+    ${ringHtml(leave,{aria:'Gå om',clock:fmtT(p.expectedStartTime)})}
+    <div class="trip-main"><div class="trip-top"><span class="t">${fmtT(p.expectedStartTime)}<span>–</span>${fmtT(p.expectedEndTime)}</span>
+      <span class="dur">${Math.round(p.duration/60)} min</span>${isFastest?'<span class="fast">Raskest</span>':''}</div>
+    <div class="stripe" aria-label="${esc(changesText(Math.max(0,rides.length-1)))}">${segs}</div>
+    ${first?approachHtml(first):''}</div></button>`;
 }
 
 /* ---------- Side: Reisen ---------- */
@@ -887,17 +994,24 @@ pages.trip={
     const steps=legs.map((l,i)=>{
       const walk=l.mode==='foot',md=modeOf(l.mode);
       const place=esc(i===0?placeName(l.fromPlace,p.fromName):placeName(l.fromPlace,'Bytte'));
-      let what;
-      if(walk)what=`${ico('walk')}<span>Gå ${Math.max(1,Math.round(l.duration/60))} min<small> · ${fmtDist(l.distance||0)}</small></span>`;
-      else{const toward=l.fromEstimatedCall?.destinationDisplay?.frontText;
-        what=`<span class="badge" style="--c:${md.c}">${esc(l.line?.publicCode||md.n)}</span><span>${md.n}${toward?` mot ${esc(toward)}`:''}</span>`;}
-      const meta=walk?'':[l.fromPlace?.quay?.publicCode?`${l.mode==='rail'||l.mode==='metro'?'Spor':'Plattform'} ${esc(l.fromPlace.quay.publicCode)}`:'',
-        l.realtime?'Sanntid':'Rutetid'].filter(Boolean).join(' · ');
+      let what,extra='';
+      if(walk)what=`<span class="wk">${ico('walk')}<b>${Math.max(1,Math.round(l.duration/60))}</b> min</span><small>${fmtDist(l.distance||0)}</small>`;
+      else{
+        const code=l.line?.publicCode||md.n,toward=l.fromEstimatedCall?.destinationDisplay?.frontText,q=l.fromPlace?.quay?.publicCode;
+        const qn=l.mode==='rail'||l.mode==='metro'?'Spor':'Plattform';
+        what=`${lineBadge(code,l.mode,'badge-l')}${toward?`<span class="to">${ico('arrow')}<span>${esc(toward)}</span></span>`:''}
+          <span class="leg-tags">${q?`<span class="quay" title="${qn} ${esc(q)}" aria-label="${qn} ${esc(q)}">${esc(q)}</span>`:''}${l.realtime?'<i class="live" title="Sanntid" aria-label="Sanntid"></i>':''}${occHtml(l.fromEstimatedCall?.occupancyStatus)}</span>`;
+        const al=alertFor(code);
+        if(al)extra=`<button class="leg-alert press" type="button" data-alerts>${ico('alert')}<span>${esc(al.summary)}</span></button>`;
+      }
       const stops=walk?[]:(l.intermediateEstimatedCalls||[]).filter(c=>c.quay?.name);
-      const details=walk||!p.stopDetailsAvailable?'':stops.length?`<details${stops.length<=4?' open':''}><summary>${ico('chev')}${stops.length} stopp underveis</summary>
-        <ol>${stops.map(c=>`<li><span>${esc(c.quay.name)}</span>${c.expectedArrivalTime?`<time>${fmtT(c.expectedArrivalTime)}</time>`:''}</li>`).join('')}</ol></details>`:'<div class="meta">Ingen stopp underveis</div>';
-      return`<div class="leg${walk?' walk':''}" style="--c:${walk?'var(--ink-3)':md.c}"><time>${fmtT(l.expectedStartTime)}</time>
-        <span class="rail"><span class="node"></span></span><div class="body"><div class="place">${place}</div><div class="what">${what}</div>${meta?`<div class="meta">${meta}</div>`:''}${details}</div></div>`;
+      // Stoppene underveis er prikker på skinnen; trykk for navn og tider.
+      const details=walk||!p.stopDetailsAvailable||!stops.length?'':`<details><summary><span class="sdots">${'<i></i>'.repeat(Math.min(stops.length,10))}</span>${stops.length} stopp</summary>
+        <ol>${stops.map(c=>`<li><span>${esc(c.quay.name)}</span>${c.expectedArrivalTime?`<time>${fmtT(c.expectedArrivalTime)}</time>`:''}</li>`).join('')}</ol></details>`;
+      const done=ts(l.expectedEndTime)<Date.now();
+      return`<div class="leg${walk?' walk':''}${done?' done':''}" data-li="${i}" style="--c:${walk?'var(--ink-3)':md.c}"><time>${fmtT(l.expectedStartTime)}</time>
+        <span class="rail"><span class="node"></span>${walk?'':`<span class="rveh" hidden>${esc(l.line?.publicCode||'')}</span>`}</span>
+        <div class="body"><div class="place">${place}</div><div class="what">${what}</div>${extra}${details}</div></div>`;
     }).join('');
     const last=legs[legs.length-1];
     return'<div class="live-status" id="liveStatus" hidden></div>'+(p.schematic?'<div class="jnote">Kartlinjen er forenklet. Følg stoppene og byttene her.</div>':'')+steps+
@@ -907,6 +1021,7 @@ pages.trip={
   bind(){
     $('#fitRoute')?.addEventListener('click',()=>{buzz(6);fitRoute();});
     $('#closeTrip')?.addEventListener('click',()=>{buzz(6);router.home();});
+    $$('#sheetPage [data-alerts]').forEach(b=>b.onclick=()=>{buzz(6);router.go('alerts');});
     updateLiveBox();
   },
   enter(){drawRoute(state.trips[state.tripIdx]);}
@@ -933,15 +1048,18 @@ pages.stop={
     const filters=modes.length>1?`<div class="filters" role="group" aria-label="Filtrer">${['all',...modes].map(m=>
       `<button class="filter press" type="button" data-m="${m}" ${m!=='all'?`style="--c:${modeOf(m).c}"`:''} aria-pressed="${(f||'all')===m}">${m==='all'?'Alle':`<i></i>${modeOf(m).n}`}</button>`).join('')}</div>`:'';
     const list=rows.filter(r=>!f||r.mode===f);
-    return filters+(entry.error&&!rows.length?`<div class="state">${ico('alert')}<b>Fikk ikke hentet avganger</b>Prøv igjen om litt.</div>`:
+    const al=[...new Set(rows.map(r=>String(r.pub)))].map(c=>alertFor(c)).filter((a,i,arr)=>a&&arr.indexOf(a)===i);
+    const alertRow=al.length?`<button class="leg-alert stop-alert press" type="button" data-alerts>${ico('alert')}<span>${esc(al[0].summary)}</span>${al.length>1?`<em>+${al.length-1}</em>`:''}</button>`:'';
+    return alertRow+filters+stopTimeline({...s,stale:entry.stale},list)+(entry.error&&!rows.length?`<div class="state">${ico('alert')}<b>Fikk ikke hentet avganger</b>Prøv igjen om litt.</div>`:
       list.length?list.map(r=>depRow({...s,stale:entry.stale},r)).join(''):'<div class="state">Ingen avganger den neste timen.</div>')+
       `<p class="note">Gangtid er anslått fra luftlinje med litt omvei. «Gå nå» gir to minutters margin.</p>`;
   },
   bind({id}){
     updateStopCallout(id);
     $('#favBtn').onclick=()=>toggleFav(id);
+    $$('#sheetPage [data-alerts]').forEach(b=>b.onclick=()=>{buzz(6);router.go('alerts');});
     $$('#sheetPage .filter').forEach(b=>b.onclick=()=>{buzz(6);stopFilter.set(id,b.dataset.m==='all'?null:b.dataset.m);router.refresh();});
-    $$('#sheetPage .dep[data-sj]').forEach(b=>b.onclick=()=>{if(!b.dataset.sj)return;buzz(6);router.go('journey',{sj:b.dataset.sj,stop:id});});
+    $$('#sheetPage .dep[data-sj],#sheetPage .tl-dot[data-sj]').forEach(b=>b.onclick=()=>{if(!b.dataset.sj)return;buzz(6);router.go('journey',{sj:b.dataset.sj,stop:id});});
   },
   leave(){if(mapLoaded){map.setFilter('stop-sel',['==',['get','id'],'']);map.setFilter('stop-cards',['all',['has','card'],['!=',['get','id'],'']]);}removeStopCallout();},
   enter({id}){
@@ -1196,7 +1314,7 @@ pages.journey={
     const j=jv.job,e=estimate(j),sc=j.calls[jv.stopIdx];
     let walk='';
     if(sc?.quay&&state.pos){const d=Math.round(geoDist(state.pos,[sc.quay.latitude,sc.quay.longitude])),reach=reachStatus(d,arrT(sc));
-      walk=`<div class="jv-walk">${ico('walk')}<span>Du er <b>${fmtDist(d)}</b> fra ${esc(sc.quay.name)} · ${walkMin(d)} min å gå${reach?` · <span class="reach ${reach.cls}">${esc(reach.label)}</span>`:''}</span></div>`;}
+      walk=`<div class="jv-walk" aria-label="${esc(`${fmtDist(d)} til ${sc.quay.name}, ${walkMin(d)} min å gå`)}">${ico('walk')}<span><b>${walkMin(d)} min</b> <small>${fmtDist(d)}</small></span>${reach?`<span class="reach ${reach.cls}">${esc(reach.label)}</span>`:''}</div>`;}
     const rows=j.calls.map((c,i)=>{
       const passed=e&&e.state!=='start'&&i<=e.at,here=e&&i===e.at&&e.state==='stop',mine=i===jv.stopIdx;
       const t=passed?depT(c):arrT(c),late=Math.round((arrT(c)-ts(c.aimedArrivalTime))/60000);
@@ -1415,7 +1533,7 @@ function parseCalls(calls){
     const dest=c.destinationDisplay?.frontText||'—';
     const key=c.serviceJourney?.id||`${line.publicCode}|${dest}|${c.aimedDepartureTime}`; // samme tur fra flere plattformer
     if(seen.has(key))return;seen.add(key);
-    rows.push({dest,pub:line.publicCode||'?',mode:line.transportMode||'bus',exp,aimed:new Date(c.aimedDepartureTime).getTime(),rt:!!c.realtime,quay:c.quay?.publicCode,sj:c.serviceJourney?.id||''});
+    rows.push({dest,pub:line.publicCode||'?',mode:line.transportMode||'bus',exp,aimed:new Date(c.aimedDepartureTime).getTime(),rt:!!c.realtime,quay:c.quay?.publicCode,sj:c.serviceJourney?.id||'',occ:c.occupancyStatus});
   });
   return rows.sort((a,b)=>a.exp-b.exp);
 }
@@ -1691,7 +1809,7 @@ async function runTripSearch(){
     const ps=d.trip?.tripPatterns||[];
     ps.forEach(p=>{p.stopDetailsAvailable=tripSchemaLevel<3;p.fromName=fromName;p.toName=toName;});
     state.trips=ps;state.tripsLoading=false;
-    if(ps.length)rememberTarget(state.dest);
+    if(ps.length){rememberTarget(state.dest);loadTripCalls();}
   }catch(e){
     if(seq!==tripSeq)return;
     state.tripsLoading=false;state.tripError=e.message||'Ukjent feil';
@@ -1931,27 +2049,37 @@ function tickLive(t=performance.now()){
   if(live.followVeh){const j=live.jobs.find(x=>x.marker);if(j)map.easeTo({center:j.marker.getLngLat(),duration:reduceMotion.matches?0:900,easing:x=>x});}
   updateLiveBox();
 }
-// Statusboksen bygges én gang og oppdateres på stedet, så sporet kan animeres jevnt.
+// Statusboksen bygges én gang og oppdateres på stedet, så ring og spor animeres jevnt.
+// Ringen viser minutter til det som skjer neste (bussen går / du går av); sporet viser hvor bussen er.
 function updateLiveBox(){
   const box=$('#liveStatus');if(!box)return;
-  const st=liveStatus();box.hidden=!st;if(!st)return;
+  const st=liveStatus();box.hidden=!st;if(!st){placeRailVehicles();return;}
   if(!box.dataset.built){
     box.dataset.built='1';
-    box.innerHTML=`<div class="ls-top"><i class="live"></i><span class="ls-txt"><b></b><small></small></span>
-      <button class="ls-follow press" type="button" aria-pressed="false">${ico('locate')}<span>Følg</span></button></div>
+    box.innerHTML=`${ringHtml(0,{size:52,win:20})}<div class="ls-main"><div class="ls-cap"><b></b><em class="src"></em></div>
       <div class="lt" hidden><div class="lt-rail"><i class="lt-fill"></i></div><div class="lt-dots"></div><span class="lt-veh"></span></div>
-      <div class="lt-ends" hidden><em></em><em></em></div>`;
+      <div class="lt-ends" hidden><em></em><em></em></div></div>
+      <button class="ls-follow press" type="button" aria-pressed="false" aria-label="Følg kjøretøyet på kartet" title="Følg">${ico('locate')}</button>`;
     box.querySelector('.ls-follow').onclick=e=>{e.stopPropagation();buzz(8);
       live.followVeh=!live.followVeh;setFollow(false);
       const j=live.jobs.find(x=>x.marker);if(live.followVeh&&j)map.easeTo({center:j.marker.getLngLat(),zoom:Math.max(map.getZoom(),15.5),duration:reduceMotion.matches?0:700});
       updateLiveBox();};
-    box.querySelector('.ls-txt').onclick=()=>{const j=live.jobs.find(x=>x.marker);if(!j)return;buzz(6);setFollow(false);
+    box.querySelector('.ls-main').onclick=()=>{const j=live.jobs.find(x=>x.marker);if(!j)return;buzz(6);setFollow(false);
       map.easeTo({center:j.marker.getLngLat(),zoom:Math.max(map.getZoom(),15),duration:reduceMotion.matches?0:700});};
   }
-  box.querySelector('.ls-txt b').innerHTML=st.text;box.querySelector('.ls-txt small').innerHTML=st.sub;
+  const now=Date.now();
+  // Før du har gått hjemmefra er det avgangstiden din som teller – samme ring som i reiseforslagene.
+  const tripStart=router.cur.name==='trip'&&live.trip?ts(live.trip.expectedStartTime):NaN,leaveFirst=now<tripStart&&tripStart<st.until;
+  const until=leaveFirst?tripStart:st.until,ringEl=box.querySelector('.ring');
+  ringEl.dataset.aria=leaveFirst?'Gå om':st.aria||'';
+  setRing(ringEl,(until-now)/60000,fmtT(until));
+  box.querySelector('.ls-cap b').innerHTML=st.short;
+  const src=box.querySelector('.src');src.textContent=st.gps?'GPS':'≈';src.title=st.gps?'GPS-posisjon fra operatøren':'Beregnet fra sanntid';src.hidden=st.gps==null;
+  box.setAttribute('aria-label',`${st.text}. ${st.sub}`.replace(/<[^>]+>/g,''));
   const fb=box.querySelector('.ls-follow');fb.setAttribute('aria-pressed',String(!!live.followVeh));fb.hidden=!live.jobs.some(x=>x.marker);
+  placeRailVehicles();
   // Sporet: de siste stoppene fram til holdeplassen din (eller fram til der du skal av).
-  const now=Date.now(),j=live.jobs.find(x=>x.now&&x.calls&&ts(x.leg.expectedEndTime)>now),track=box.querySelector('.lt'),ends=box.querySelector('.lt-ends');
+  const j=live.jobs.find(x=>x.now&&x.calls&&ts(x.leg.expectedEndTime)>now),track=box.querySelector('.lt'),ends=box.querySelector('.lt-ends');
   if(!j||j.board<0){track.hidden=ends.hidden=true;return;}
   const e=j.now.e,before=now<depT(j.calls[j.board]);
   const S=j.stopS,frac=e.state==='moving'?(e.s-S[e.at])/((S[e.at+1]-S[e.at])||1):0;
@@ -1969,8 +2097,24 @@ function updateLiveBox(){
   track.querySelector('.lt-fill').style.width=Math.max(0,pct)+'%';
   const v=track.querySelector('.lt-veh');v.textContent=j.code;v.style.left=pct+'%';v.classList.toggle('far',pos<start);
   const [a,b]=ends.children;
-  a.textContent=e.state==='start'?`Starter kl. ${fmtT(depT(j.calls[0]))}`:pos<start?`Lenger unna enn ${j.calls[start]?.quay?.name||''}`:(j.calls[start]?.quay?.name||'');
-  b.textContent=before?`Din holdeplass · ${j.calls[end]?.quay?.name||''}`:`Gå av · ${j.calls[end]?.quay?.name||''}`;
+  a.textContent=e.state==='start'?(j.calls[0]?.quay?.name||''):(j.calls[Math.max(start,Math.min(end,e.at))]?.quay?.name||'');
+  b.textContent=j.calls[end]?.quay?.name||'';
+}
+// Reisesiden: kjøretøyet glir langs skinnen til etappen du sitter på; fullførte etapper tones ned.
+function placeRailVehicles(){
+  const p=live.trip;if(router.cur.name!=='trip'||!p)return;
+  const now=Date.now();
+  $$('#sheetPage .leg[data-li]').forEach(el=>{
+    const l=p.legs[+el.dataset.li];if(!l)return;
+    el.classList.toggle('done',ts(l.expectedEndTime)<now);
+    const v=el.querySelector('.rveh');if(!v)return;
+    const j=live.jobs.find(x=>x.leg===l);
+    if(!j?.now||!j.calls||j.board<0||j.alight<=j.board){v.hidden=true;return;}
+    const e=j.now.e,S=j.stopS,frac=e.state==='moving'?(e.s-S[e.at])/((S[e.at+1]-S[e.at])||1):0,pos=e.at+frac;
+    const onboard=now>=depT(j.calls[j.board])&&now<arrT(j.calls[j.alight]);
+    v.hidden=!onboard;el.classList.toggle('riding',onboard);if(!onboard)return;
+    v.style.setProperty('--k',String(Math.max(0,Math.min(1,(pos-j.board)/(j.alight-j.board)))));
+  });
 }
 function tweenLngLat(m,to,dur){
   const from=m.getLngLat();if(reduceMotion.matches||Math.abs(from.lng-to[0])+Math.abs(from.lat-to[1])>0.05){m.setLngLat(to);return;}
@@ -1978,14 +2122,16 @@ function tweenLngLat(m,to,dur){
   const step=t=>{const k=Math.min(1,(t-t0)/dur);m.setLngLat([from.lng+(to[0]-from.lng)*k,from.lat+(to[1]-from.lat)*k]);if(k<1)requestAnimationFrame(step);};
   requestAnimationFrame(step);
 }
+// Status for ett kjøretøy: lang tekst (skjermleser, varsel) og kort tekst + tidspunkt til ringen.
 function liveText(j,now=Date.now()){
   const c=j.calls;if(!c||j.board<0)return null;
   const e=estimate(j,now);if(!e)return null;
-  const name=`${modeOf(j.leg.mode).n} ${j.code}`,src=j.gps&&now-j.gps.t<120000?'GPS':'beregnet fra sanntid';
+  const gps=!!(j.gps&&now-j.gps.t<120000),name=`${modeOf(j.leg.mode).n} ${j.code}`,src=gps?'GPS':'beregnet fra sanntid';
+  const out=(text,sub,short,until,aria)=>({text,sub,short,until,aria,gps});
   if(j.leg.noStop){ // tur åpnet fra et kjøretøy uten holdeplass i nærheten
     if(e.state==='done')return null;const nx=c[Math.min(c.length-1,e.at+(e.state==='start'?0:1))],end=c[c.length-1];
-    return{text:e.state==='start'?`${name} starter kl. ${fmtT(depT(c[0]))}`:`Neste stopp: ${esc(nx?.quay?.name||'')}`,
-      sub:`Fremme ved ${esc(end?.quay?.name||'')} kl. ${fmtT(arrT(end))} · ${src}`};
+    return e.state==='start'?out(`${name} starter kl. ${fmtT(depT(c[0]))}`,src,'Har ikke startet',depT(c[0]),'Starter om'):
+      out(`Neste stopp: ${esc(nx?.quay?.name||'')}`,`Fremme ved ${esc(end?.quay?.name||'')} kl. ${fmtT(arrT(end))} · ${src}`,`Neste: ${esc(nx?.quay?.name||'')}`,arrT(end),'Endestopp om');
   }
   const boardName=c[j.board]?.quay?.name||j.leg.fromPlace?.name,alightName=c[j.alight]?.quay?.name||j.leg.toPlace?.name;
   const dep=depT(c[j.board]),arr=arrT(c[Math.max(0,j.alight)]);
@@ -1994,23 +2140,26 @@ function liveText(j,now=Date.now()){
     const m=Math.max(0,Math.round((dep-now)/60000));
     const where=e.state==='start'?`starter fra ${esc(c[0].quay?.name||'')} kl. ${fmtT(depT(c[0]))}`:
       away<=0?`er ved ${esc(boardName)}`:`er ${away} ${plural(away,'stopp','stopp')} unna ${esc(boardName)}`;
-    return{text:`${name} ${where}`,sub:`Går kl. ${fmtT(dep)}${m?` · om ${m} min`:' · nå'} · ${src}`};
+    const short=e.state==='start'?'Har ikke startet':away<=0?'Ved holdeplassen':`${away} ${plural(away,'stopp','stopp')} unna`;
+    return out(`${name} ${where}`,`Går kl. ${fmtT(dep)}${m?` · om ${m} min`:' · nå'} · ${src}`,short,dep,'Går om');
   }
   if(j.leg.journey){ // enkelttur: etter holdeplassen din er det ingen «gå av»
     const nx=c[Math.min(c.length-1,e.at+1)],end=c[c.length-1];
-    if(e.state==='done')return{text:`${name} er fremme ved ${esc(end?.quay?.name||'')}`,sub:src};
-    return{text:`${name} har passert ${esc(boardName)}`,sub:`Neste stopp: ${esc(nx?.quay?.name||'')} · Endestopp ${esc(end?.quay?.name||'')} kl. ${fmtT(arrT(end))} · ${src}`};
+    if(e.state==='done')return out(`${name} er fremme ved ${esc(end?.quay?.name||'')}`,src,'Fremme',now,'');
+    return out(`${name} har passert ${esc(boardName)}`,`Neste stopp: ${esc(nx?.quay?.name||'')} · Endestopp ${esc(end?.quay?.name||'')} kl. ${fmtT(arrT(end))} · ${src}`,
+      `Neste: ${esc(nx?.quay?.name||'')}`,arrT(end),'Endestopp om');
   }
   if(now<arr){
-    const next=c[Math.min(c.length-1,e.at+1)]?.quay?.name,left=Math.max(0,j.alight-e.at-(e.state==='moving'?0:0));
-    return{text:`Neste stopp: ${esc(next||'')}`,sub:`Gå av ved ${esc(alightName)} kl. ${fmtT(arr)} · ${left} ${plural(left,'stopp','stopp')} igjen · ${src}`};
+    const next=c[Math.min(c.length-1,e.at+1)]?.quay?.name,left=Math.max(0,j.alight-e.at);
+    return out(`Neste stopp: ${esc(next||'')}`,`Gå av ved ${esc(alightName)} kl. ${fmtT(arr)} · ${left} ${plural(left,'stopp','stopp')} igjen · ${src}`,
+      `Neste: ${esc(next||'')}`,arr,'Gå av om');
   }
   return null;
 }
 function liveStatus(){
   const now=Date.now();
   for(const j of live.jobs){if(ts(j.leg.expectedEndTime)>now){const s=liveText(j,now);if(s)return s;}}
-  const p=live.trip;if(p&&ts(p.expectedEndTime)<now)return{text:'Du skal være fremme',sub:`Ankomst kl. ${fmtT(p.expectedEndTime)}`};
+  const p=live.trip;if(p&&ts(p.expectedEndTime)<now)return{text:'Du skal være fremme',sub:`Ankomst kl. ${fmtT(p.expectedEndTime)}`,short:'Fremme',until:now,aria:''};
   return null;
 }
 
@@ -2036,6 +2185,7 @@ setInterval(()=>refreshVehicles(),10000);
 setInterval(()=>{if(!document.hidden&&['home','stop','results','journey'].includes(router.cur.name))router.refresh();},20000);
 // Avgangskortene: nye tider hvert 30. sek, og minuttene telles ned hvert 20. sek.
 setInterval(()=>{if(!document.hidden)loadViewDeps();},30000);
+setInterval(()=>{if(!document.hidden&&router.cur.name==='results')loadTripCalls();},30000);
 setInterval(()=>{if(!document.hidden&&mapLoaded&&map.getZoom()>=CARD_ZOOM-0.5)renderStopsLayer();},20000);
 setInterval(()=>{if(!document.hidden)loadAlerts();},180000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){loadAlerts();loadDeps(true);refreshVehicles(true);}});
