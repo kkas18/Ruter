@@ -134,6 +134,9 @@ input,select{font:inherit;color:inherit}
 .maplibregl-ctrl-attrib.maplibregl-compact .maplibregl-ctrl-attrib-button{background-color:var(--surface)}
 [data-theme="dark"] .maplibregl-ctrl-attrib.maplibregl-compact .maplibregl-ctrl-attrib-button{background-color:#E8E3DD;filter:invert(1)}
 .maplibregl-ctrl-attrib a{color:var(--ink-2)!important}
+/* Kildehenvisningen skal finnes, men ikke rope: liten, dempet knapp som åpnes ved trykk. */
+.maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show){width:24px;height:24px;min-height:0;padding:0;box-shadow:0 1px 3px rgba(20,25,28,.14)!important}
+.maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show) .maplibregl-ctrl-attrib-button{background-size:18px;background-repeat:no-repeat;background-position:center;opacity:.45}
 .maplibregl-popup-content{background:var(--surface);color:var(--ink);border-radius:14px;padding:14px;box-shadow:var(--float);font-family:var(--font)}
 .maplibregl-popup-tip{display:none}
 .maplibregl-popup-close-button{display:none}
@@ -252,6 +255,11 @@ body.sat .fc-leader line{stroke:#fff;opacity:.9}
 .fc-src.est{color:var(--ink-3)}
 .fc .skel-row .skel{height:12px}
 .fc-row .tick{animation:tick .5s var(--ease-out)}
+.fc-tags{display:flex!important;align-items:center;gap:6px;margin-top:3px!important}
+.fc-tags .quay{min-width:20px;height:20px;font-size:11px}
+.fc-late{align-self:center;font-style:normal;font-size:11px;font-weight:800;color:var(--late);margin-right:4px}
+.fc-title .live{flex:none}
+.fc.compact .fc-first{margin-bottom:0}
 
 /* ---------- Arket ---------- */
 .sheet{position:absolute;z-index:30;left:0;right:0;bottom:0;height:calc(100% - var(--sat) - 10px);max-width:640px;margin:0 auto;
@@ -479,6 +487,10 @@ button.dep:active{background:var(--surface-2)}
 .ap-veh.far::before{content:'';position:absolute;right:100%;top:7px;width:10px;height:2px;margin-right:2px;background:repeating-linear-gradient(90deg,var(--c) 0 2px,transparent 2px 4px)}
 
 /* ---------- Nedtellingsring ---------- */
+.ring-w{flex:none;display:inline-flex;flex-direction:column;align-items:center;gap:3px}
+.ring-lab{font-style:normal;font-size:10.5px;font-weight:700;letter-spacing:.01em;color:var(--ink-3);white-space:nowrap;line-height:1}
+.ring-lab:empty{display:none}
+.ring.go+.ring-lab{color:var(--late)}
 .ring{--s:44px;position:relative;flex:none;display:grid;place-items:center;align-content:center;width:var(--s);height:var(--s);color:var(--ink);line-height:1}
 .ring svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
 .ring circle{fill:none;stroke-width:3.5}
@@ -498,30 +510,41 @@ button.dep:active{background:var(--surface-2)}
 @keyframes ringIn{from{stroke-dashoffset:100}}
 
 /* ---------- Holdeplass: tidslinje ---------- */
-.tl{margin:2px 16px 14px;padding:10px 12px 10px;border-radius:var(--r-m);background:var(--surface-2)}
-.tl-axis,.tl-lane{display:grid;grid-template-columns:104px 1fr;column-gap:10px;align-items:center}
-.tl-axis>div{position:relative;height:16px;margin:0 12px}
+.tl{margin:2px 16px 14px;padding:8px 12px 10px;border-radius:var(--r-m);background:var(--surface-2)}
+.tl-axis,.tl-lane{display:grid;grid-template-columns:36px 1fr;column-gap:10px;align-items:start}
+.tl-axis>div{position:relative;height:14px;margin:0 12px}
 .tl-axis em{position:absolute;top:0;transform:translateX(-50%);font-style:normal;font-size:10.5px;font-weight:700;color:var(--ink-3);font-variant-numeric:tabular-nums}
 .tl-axis em:first-child{transform:none}
 .tl-axis em:last-child{transform:translateX(-100%)}
-.tl-lane{min-height:34px}
-.tl-lab{display:flex;align-items:center;gap:6px;min-width:0}
-.tl-lab .badge{flex:none;min-width:28px;height:21px;font-size:12px}
-.tl-lab small{min-width:0;font-size:11.5px;font-weight:600;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tl-plot{position:relative;height:34px;margin-right:12px;margin-left:12px}
-.tl-plot::before{content:'';position:absolute;left:-12px;right:-12px;top:50%;height:2px;margin-top:-1px;border-radius:1px;background:color-mix(in srgb,var(--c) 22%,var(--line))}
-.tl-walk{position:absolute;left:-12px;top:5px;bottom:5px;border-radius:6px 0 0 6px;
-  background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--ink-3) 16%,transparent) 0 3px,transparent 3px 7px)}
-.tl-late{position:absolute;top:50%;height:4px;margin-top:-2px;border-radius:2px;background:var(--late);opacity:.55}
-.tl-dot{position:absolute;top:50%;transform:translate(-50%,-50%);min-width:26px;height:26px;padding:0 4px;border-radius:13px;
+.tl-lab{display:flex;align-items:center;margin-top:16px}
+.tl-lab .badge{flex:none;min-width:34px;height:22px;font-size:12px}
+/* Retningen står over linjen, så prikkene får hele bredden. */
+.tl-plot{--y:27px;position:relative;height:42px;margin:0 12px}
+.tl-dest{position:absolute;left:-12px;right:-12px;top:1px;font-size:11px;font-weight:650;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-plot::before{content:'';position:absolute;left:-12px;right:-12px;top:var(--y);height:2px;margin-top:-1px;border-radius:1px;background:color-mix(in srgb,var(--c) 24%,var(--line))}
+.tl-walk{position:absolute;left:-12px;top:calc(var(--y) - 10px);height:20px;border-radius:6px 0 0 6px;
+  background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--ink-3) 18%,transparent) 0 3px,transparent 3px 7px);transition:width 1s var(--ease-out)}
+.tl-late{position:absolute;top:var(--y);height:4px;margin-top:-2px;border-radius:2px;background:var(--late);opacity:.55;transition:left 1s var(--ease-out),width 1s var(--ease-out)}
+.tl-dot{position:absolute;top:var(--y);transform:translate(-50%,-50%);min-width:26px;height:26px;padding:0 4px;border-radius:13px;
+  display:grid;place-items:center;grid-auto-flow:column;gap:1px;
   background:var(--c);color:#fff;font-size:11.5px;font-weight:800;font-variant-numeric:tabular-nums;border:2px solid var(--surface-2);
-  transition:transform var(--t-fast)}
-.tl-dot:active{transform:translate(-50%,-50%) scale(.92)}
+  transition:left 1s var(--ease-out),opacity .3s,transform var(--t-fast)}
+button.tl-dot:active{transform:translate(-50%,-50%) scale(.92)}
+.tl-dot sup{font-size:8.5px;font-weight:800;opacity:.85;line-height:1;align-self:start;margin-top:5px}
 .tl-dot.sched{background:var(--surface);color:var(--ink);border:2px solid var(--c)}
 .tl-dot.miss{opacity:.42}
-.tl-legend{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11px;font-weight:600;color:var(--ink-3)}
+.tl-legend{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11px;font-weight:600;color:var(--ink-3)}
 .tl-legend .g{width:13px;height:13px}
+.tl-more{margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3)}
 .tl-walk-key{width:16px;height:10px;border-radius:3px;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--ink-3) 30%,transparent) 0 2px,transparent 2px 5px)}
+/* Kompakt utgave på Hjem: uten akse og bakgrunn, mindre prikker. */
+.tl-compact{position:relative;margin:2px 0 0;padding:0;background:none}
+.tl-compact .tl-plot{--y:25px;height:36px}
+.tl-compact .tl-lab{margin-top:14px}
+.tl-compact .tl-dot{min-width:24px;height:24px;font-size:11px;border-color:var(--surface)}
+.tl-compact .tl-dot.sched{border-color:var(--c)}
+.tl-compact .tl-dest{font-size:10.5px}
+.tl-compact>.tl-more{position:absolute;right:0;bottom:-2px}
 .dep .dest small{display:flex;align-items:center;gap:8px}
 .dep .dest small .reach{font-size:12px}
 
@@ -562,7 +585,7 @@ button.dep:active{background:var(--surface-2)}
 .leg-alert .g{width:15px;height:15px;color:var(--warn)}
 .leg-alert span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .leg-alert em{flex:none;font-style:normal;font-size:11px;font-weight:800;color:var(--warn)}
-.stop-alert{width:auto;margin:0 16px 10px}
+.stop-alert{width:auto;max-width:calc(100% - 32px);margin:0 16px 10px}
 .sdots{display:inline-flex;gap:4px;margin-right:6px}
 .sdots i{width:6px;height:6px;border-radius:50%;border:1.5px solid var(--c);background:var(--surface)}
 .leg.done{opacity:.5}

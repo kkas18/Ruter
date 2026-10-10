@@ -190,3 +190,22 @@ Prinsipp: **ett stort tall per skjerm, resten som grafikk, tekst bare når du tr
 | — | **Belegg** som 1–3 figurer der operatøren deler det (Ruter gjør det foreløpig ikke, da vises ingenting) |
 
 Typografi: titler 21 → 19 px, avgangstall 22 → 20 px, sekundærtekst 12–12,5 px. Tall ruller mykt når de endres.
+
+## Runde 5: vurdering etter visualiseringen
+
+| Område | Før runden | Etter | Kommentar |
+|---|---|---|---|
+| Design | 8 | **8,5** | Holdeplass-siden viste samme avganger tre ganger, og Hjem var fortsatt tekstlister. Nå har hver avgang én plass. |
+| Grafikk | 8,5 | **9** | Én tidslinje overalt (Hjem, holdeplass), ringen har synlig forklaring og kartkortet bruker symboler. |
+| Animasjoner | 8 | **8,5** | Prikker, spor og ringer oppdateres på stedet og glir i stedet for å tegnes på nytt. |
+| Appfølelse | 8 | **8** | Uendret til appen er testet på ekte telefoner. |
+| **Snitt** | **8,1** | **8,5** | |
+
+### Gjort i denne runden
+1. **Ingen dobbeltheter på holdeplassen:** kortet på kartet viser bare neste avgang når arket er oppe (fire når arket er nede). Tidslinjen viser de nærmeste avgangene, og listen under tar bare resten («Senere», eller «Flere avganger» når ikke alle linjer får plass).
+2. **Hjem:** hvert holdeplasskort har en liten tidslinje med to retninger, gangtid som skravert felt og avganger du ikke rekker tonet ned – samme bildespråk som på holdeplassen. (Ring og tidslinje på samme kort ville vist neste avgang to ganger.)
+3. **Ringen forklarer seg selv:** et lite ord under tallet – «gå om», «går om», «gå av om» – som blir «gå nå» ved null.
+4. **Kartkortet:** «Buss · plattform B · +1 min» er byttet ut med plattformbrikke, sanntidsprikk og en liten rød «+1» ved minuttene.
+5. **Myke oppdateringer:** tidslinjene på Hjem og holdeplassen, sporene i reiseforslagene og ringene endres på stedet, så prikkene glir mot «nå».
+6. **Store knutepunkt:** holdeplass-siden henter opptil fire avganger per linje og retning den neste timen (Jernbanetorget: over hundre i stedet for 14). Prikker som ville kollidert slås sammen («12⁺¹»), retningen står over linjen så prikkene får hele bredden, og linjer som ikke får plass står i listen.
+7. **Kartet:** kildehenvisningen er en liten, dempet knapp i stedet for en tung svart sirkel.
