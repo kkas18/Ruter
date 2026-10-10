@@ -40,3 +40,39 @@ Neste steg som ville løftet videre:
 - delte overganger mellom reiseforslag og kart (View Transitions);
 - dra-for-å-oppdatere i Avganger;
 - egne kartfliser med samme palett.
+
+## Runde 2: kartet som hovedflate
+
+**Tilbakemelding:** Kartet skulle bli mer profesjonelt og elegant å navigere i, og samme handling skulle ikke ligge flere steder.
+
+### Navigasjon uten dobbeltheter
+Fanene er fjernet. Kartet er hovedskjermen, og alt annet skjer i ett ark med en stabel sider:
+
+| Side | Innhold | Åpnes fra |
+|---|---|---|
+| Hjem | Favoritter og holdeplasser i nærheten med neste avganger, varsel om trafikkmeldinger | Start |
+| Søk | Fra/til, tidspunkt, nylige mål og favoritter | Søkefeltet på kartet, eller trykk på tittelen i reiseforslagene |
+| Reiseforslag | Alternativer med tidsbar; valgt rute vises på kartet | Valg i søket |
+| Reisen | Linjediagram med bytter og stopp | Et forslag |
+| Holdeplass | Avgangstavle med filter bare for transportmidler som faktisk går derfra | Kort på Hjem eller holdeplass på kartet |
+| Trafikkmeldinger | Alle aktive avvik | Varselet på Hjem |
+| Innstillinger | Utseende, gangfart, kjøretøy, vibrasjon | Tannhjulet |
+
+Dette er fjernet fordi det var en kopi av noe annet:
+- Avganger-fanen (nå Hjem og Holdeplass);
+- søkeknappen på kartet (nå ett søkefelt);
+- egen kartfane;
+- favorittlisten i innstillingene (stjernen på holdeplassen styrer favoritter);
+- karttypevalg og oppdateringsintervall (ett gjennomarbeidet kart og fast intervall på 30 sek).
+
+### Kartet
+- **Vektorkart** (MapLibre GL med OpenFreeMap) i appens egen palett, i både lys og mørk modus. Det er ikke lenger et invertert rasterkart.
+- **Rolig innhold:** ingen POI-ikoner og dempede veier. Kollektivruter, holdeplasser og kjøretøy ligger øverst.
+- **Utforsk ved å flytte kartet:** holdeplasser lastes der du ser, og uten posisjon følger «I nærheten» kartsenteret.
+- **Rotasjon** med kompass som peker mot nord, mykt følg-meg, og hold inne for å velge «Fra her» / «Til her».
+- **Ruter tegnes inn** etappe for etappe og tilpasses alltid den synlige delen av kartet over arket.
+
+### Arket
+- **Tre høyder** (lav, halv, full) som reagerer på fart.
+- **Felles tilbake:** knapp, Esc, Androids tilbake-tast og «dra ned» på helskjermsider gjør det samme.
+- **Stor skjerm:** arket blir et fast sidepanel.
