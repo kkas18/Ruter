@@ -7,7 +7,7 @@
    Data: Entur Journey Planner v3, Geocoder v3, SIRI VM/SX.
    Kart: MapLibre GL med OpenFreeMap-vektorfliser i egen stil.
    ===================================================================== */
-const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ico=(id,cls='')=>`<svg class="g ${cls}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
 const reduceMotion=matchMedia('(prefers-reduced-motion: reduce)');
@@ -566,7 +566,8 @@ function setVisible(px,animate=true){
 }
 function snapTo(name,animate=true){
   if(!sheetUI.snaps.includes(name))name=sheetUI.snaps[sheetUI.snaps.length-1];
-  sheetUI.snap=name;setVisible(snapPx(name),animate);
+  const prev=sheetUI.snap;sheetUI.snap=name;setVisible(snapPx(name),animate);
+  if(prev!==name)sheetUI.onSnap?.(name);
   if(mapLoaded)map.setPadding(mapPadding());
 }
 let drag=null,suppressClick=false;
@@ -660,6 +661,7 @@ const router={
   }
 };
 history.replaceState({d:0},'');
+sheetUI.onSnap=()=>{if(router.cur.name==='stop')updateStopCallout(router.cur.params.id);};
 addEventListener('popstate',()=>{
   if(router.skipPop){router.skipPop--;return;}
   const prev=router.stack.pop();if(!prev)return;
@@ -672,25 +674,31 @@ const backBtn='<button class="icon-btn back press" type="button" aria-label="Til
    Appen skal vise heller enn å forklare: én ring for «hvor lenge», ett merke for
    «avvik», tre figurer for «hvor fullt». Teksten ligger i aria-label og title. */
 // Nedtellingsring: tallet i midten, ringen tømmes mot null og skifter farge når det haster.
-function ringState(min,win,clock){
-  const m=Math.max(0,Math.round(min)),big=m>=100&&clock;
-  return{cls:m<=1?'go':m<=5?'soon':'',f:Math.min(1,m/win),txt:m<=0?'nå':big?clock:String(m),unit:m>0&&!big?'min':'',clock:!!big,
+// Et lite ord under ringen sier hva tallet betyr («gå om», «går om», «gå av om»).
+// urg: minuttene som bestemmer fargen, når det ikke er selve tallet (f.eks. avgang minus gangtid).
+function ringState(min,win,clock,urg=min){
+  const m=Math.max(0,Math.round(min)),u=Math.round(urg),big=m>=100&&clock;
+  return{cls:u<=1?'go':u<=5?'soon':'',f:Math.min(1,m/win),txt:m<=0?'nå':big?clock:String(m),unit:m>0&&!big?'min':'',clock:!!big,
     label:m<=0?'nå':big?`kl. ${clock}`:`${m} min`};
 }
-function ringHtml(min,{win=30,size=44,aria='',clock=null}={}){
-  const r=ringState(min,win,clock);
-  return`<span class="ring ${r.cls}${r.clock?' clock':''}" style="--s:${size}px;--f:${r.f}" data-win="${win}" data-aria="${esc(aria)}" role="img" aria-label="${esc(`${aria} ${r.label}`.trim())}">
+// «gå om» + «nå» leses «gå nå»: ved null faller «om» bort.
+const ringWord=(lab,m)=>!lab?'':Math.round(m)<=0?lab.replace(/ om$/,''):lab;
+function ringHtml(min,{win=30,size=44,aria='',clock=null,urg=min}={}){
+  const r=ringState(min,win,clock,urg);
+  return`<span class="ring-w"><span class="ring ${r.cls}${r.clock?' clock':''}" style="--s:${size}px;--f:${r.f}" data-win="${win}" data-aria="${esc(aria)}" role="img" aria-label="${esc(`${aria} ${r.label}`.trim())}">
     <svg viewBox="0 0 44 44" aria-hidden="true"><circle class="trk" cx="22" cy="22" r="19"/><circle class="val" cx="22" cy="22" r="19" pathLength="100"/></svg>
-    <b>${r.txt}</b><small>${r.unit}</small></span>`;
+    <b>${r.txt}</b><small>${r.unit}</small></span><em class="ring-lab" aria-hidden="true">${esc(ringWord(aria.toLowerCase(),min))}</em></span>`;
 }
 // Oppdater en ring på stedet, så fyll, farge og tall glir over i stedet for å blinke.
-function setRing(el,min,clock=null){
+function setRing(el,min,clock=null,urg=min){
   if(!el)return;
-  const r=ringState(min,+el.dataset.win||30,clock),b=el.querySelector('b');
+  const w=el.closest('.ring-w');el=el.classList.contains('ring')?el:el.querySelector('.ring');
+  const r=ringState(min,+el.dataset.win||30,clock,urg),b=el.querySelector('b');
   el.className=`ring ${r.cls}${r.clock?' clock':''}`;el.style.setProperty('--f',String(r.f));
   if(b.textContent!==r.txt){b.textContent=r.txt;b.classList.remove('tick');void b.offsetWidth;b.classList.add('tick');}
   el.querySelector('small').textContent=r.unit;
   el.setAttribute('aria-label',`${el.dataset.aria||''} ${r.label}`.trim());
+  const lab=w?.querySelector('.ring-lab');if(lab)lab.textContent=ringWord((el.dataset.aria||'').toLowerCase(),min);
 }
 // Linjer med trafikkmelding får et lite varselmerke på linjeskiltet.
 function alertFor(code){return state.alerts.find(a=>(a.lines||[]).includes(String(code)));}
@@ -730,24 +738,51 @@ function depRow(s,r){
 }
 // Avgangene som tidslinje: én rad per linje og retning, prikkene står der de går.
 // Det skraverte feltet er tiden du trenger for å gå dit – avganger inni det rekker du ikke.
-function stopTimeline(s,rows){
-  const now=Date.now();
+// Går en linje så ofte at prikkene ville kollidert, slås de sammen til én prikk med «+n»;
+// de sammenslåtte avgangene står i listen under. Returnerer også hvilke avganger som vises.
+function stopTimeline(s,rows,{compact=false,maxLanes=compact?2:6,width=0}={}){
+  const now=Date.now(),shown=new Set();
   let W=30;if(rows.filter(r=>r.exp-now<=30*60000).length<3)W=60;
-  const inWin=rows.filter(r=>r.exp-now<=W*60000);if(!inWin.length)return'';
+  const inWin=rows.filter(r=>r.exp-now<=W*60000);if(!inWin.length)return{html:'',shown,W};
   const lanes=new Map();
-  inWin.forEach(r=>{const k=`${r.pub}|${r.dest}`;if(!lanes.has(k))lanes.set(k,{pub:r.pub,mode:r.mode,dest:r.dest,rows:[]});lanes.get(k).rows.push(r);});
-  const list=[...lanes.values()].slice(0,6),x=t=>Math.max(0,Math.min(100,(t-now)/(W*60000)*100));
+  inWin.forEach(r=>{const k=`${r.pub}|${r.dest}`;if(!lanes.has(k))lanes.set(k,{key:k,pub:r.pub,mode:r.mode,dest:r.dest,rows:[]});lanes.get(k).rows.push(r);});
+  const list=[...lanes.values()].slice(0,maxLanes),hidden=lanes.size-list.length;
+  const x=t=>Math.max(0,Math.min(100,(t-now)/(W*60000)*100));
   const d=distTo(s),walk=d!=null&&!s.stale?walkMin(d):0,wp=Math.min(100,walk/W*100);
+  // Bredden på plottet bestemmer hvor tett prikkene kan stå (prikken er ~26 px).
+  const plotW=Math.max(150,(width||$('#sheetPage')?.clientWidth||360)-(compact?32+46+24:32+24+46+24)),gap=(compact?24:28)/plotW*100;
   const step=W===30?10:20,ticks=Array.from({length:W/step+1},(_,i)=>i*step);
-  return`<div class="tl" role="group" aria-label="Avganger de neste ${W} minuttene">
-    <div class="tl-axis"><span></span><div>${ticks.map(t=>`<em style="left:${t/W*100}%">${t?t:'nå'}</em>`).join('')}</div></div>
-    ${list.map(L=>`<div class="tl-lane"><span class="tl-lab">${lineBadge(L.pub,L.mode,'',false)}<small>${esc(L.dest)}</small></span>
-      <div class="tl-plot" style="--c:${modeOf(L.mode).c}">${walk?`<span class="tl-walk" style="width:${wp}%" title="${walk} min å gå"></span>`:''}
-      ${L.rows.map(r=>{const m=Math.max(0,minUntil(r.exp)),late=r.exp-r.aimed>60000;
-        return`${late?`<span class="tl-late" style="left:${x(r.aimed)}%;width:${x(r.exp)-x(r.aimed)}%"></span>`:''}<button class="tl-dot${r.rt?'':' sched'}${m<walk?' miss':''}" type="button"
-          style="left:${x(r.exp)}%" data-sj="${esc(r.sj||'')}" aria-label="${esc(`${modeOf(r.mode).n} ${r.pub} mot ${r.dest}, ${m<=0?'nå':`om ${m} min`}${late?', forsinket':''}${r.rt?'':', rutetid'}`)}">${m<=0?'nå':m}</button>`;}).join('')}</div></div>`).join('')}
-    ${walk?`<div class="tl-legend"><span class="tl-walk-key"></span>${ico('walk')}${walk} min å gå</div>`:''}
+  const tag=compact?'span':'button';
+  const lane=L=>{
+    const dots=[];
+    L.rows.forEach(r=>{const xi=x(r.exp),last=dots[dots.length-1];
+      if(last&&xi-last.x<gap){last.more.push(r);return;}
+      dots.push({r,x:xi,more:[]});shown.add(r);});
+    return`<div class="tl-lane" data-k="${esc(L.key)}"><span class="tl-lab">${lineBadge(L.pub,L.mode,'',false)}</span>
+      <div class="tl-plot" style="--c:${modeOf(L.mode).c}"><span class="tl-dest">${esc(L.dest)}</span>
+      ${walk?`<span class="tl-walk" style="width:${wp}%"></span>`:''}
+      ${dots.map(({r,x:xi,more})=>{const m=Math.max(0,minUntil(r.exp)),late=r.exp-r.aimed>60000;
+        const lab=`${modeOf(r.mode).n} ${r.pub} mot ${r.dest}, ${m<=0?'nå':`om ${m} min`}${late?', forsinket':''}${r.rt?'':', rutetid'}${more.length?`, og ${more.length} til rett etter`:''}`;
+        return`${late?`<span class="tl-late" data-sj="${esc(r.sj||'')}" style="left:${x(r.aimed)}%;width:${xi-x(r.aimed)}%"></span>`:''}<${tag} class="tl-dot${r.rt?'':' sched'}${m<walk?' miss':''}"${tag==='button'?' type="button"':''}
+          style="left:${xi}%" data-sj="${esc(r.sj||'')}" aria-label="${esc(lab)}">${m<=0?'nå':m}${more.length?`<sup>+${more.length}</sup>`:''}</${tag}>`;}).join('')}</div></div>`;
+  };
+  const html=`<div class="tl${compact?' tl-compact':''}" role="group" aria-label="Avganger de neste ${W} minuttene">
+    ${compact?'':`<div class="tl-axis"><span></span><div>${ticks.map(t=>`<em style="left:${t/W*100}%">${t?t:'nå'}</em>`).join('')}</div></div>`}
+    ${list.map(lane).join('')}
+    ${!compact&&(walk||hidden)?`<div class="tl-legend">${walk?`<span class="tl-walk-key"></span>${ico('walk')}${walk} min å gå`:''}${hidden?`<span class="tl-more">+${hidden} til i listen</span>`:''}</div>`:''}
+    ${compact&&hidden?`<span class="tl-more">+${hidden}</span>`:''}
   </div>`;
+  return{html,shown,W,hidden};
+}
+// Oppdater en tidslinje på stedet når de samme avgangene fortsatt vises: prikkene glir i stedet for å hoppe.
+const tlSig=el=>[...el.querySelectorAll('.tl-lane')].map(l=>`${l.dataset.k}:${[...l.querySelectorAll('.tl-dot,.tl-late')].map(d=>d.className.split(' ')[0]+d.dataset.sj).join(',')}`).join('|')
+  +(el.querySelector('.tl-axis')?.textContent||'')+(el.querySelector('.tl-legend,.tl-compact>.tl-more')?'+':'');
+function morphTl(o,n){
+  if(!o||!n)return;
+  if(!o.querySelector('.tl')||tlSig(o)!==tlSig(n)){o.innerHTML=n.innerHTML;return;}
+  const parts='.tl-dot,.tl-late,.tl-walk,.tl-dest,.tl-legend,.tl-more',od=$$(parts,o),nd=$$(parts,n);
+  od.forEach((e,i)=>{const m=nd[i];if(!m)return;e.style.cssText=m.style.cssText;e.className=m.className;
+    if(e.innerHTML!==m.innerHTML)e.innerHTML=m.innerHTML;const al=m.getAttribute('aria-label');if(al)e.setAttribute('aria-label',al);});
 }
 function miniRow(s,r){
   const m=minUntil(r.exp);
@@ -755,12 +790,15 @@ function miniRow(s,r){
   return`<div class="mini">${lineBadge(r.pub,r.mode,'',false)}<span class="d">${esc(r.dest)}</span>${t}</div>`;
 }
 const upcoming=id=>(state.deps.get(id)?.rows||[]).filter(r=>r.exp>Date.now()-30000);
+// Holdeplasskort på Hjem: samme tidslinje som på holdeplassen, i liten utgave (to retninger).
 function stopCard(s){
   const rows=upcoming(s.id),d=distTo(s),fav=favs.some(f=>f.id===s.id),entry=state.deps.get(s.id);
-  const body=!entry?'<div class="mini"><span class="skel" style="width:32px;height:22px"></span><span class="skel" style="width:70%"></span><span class="skel" style="width:36px"></span></div>':
-    rows.length?rows.slice(0,3).map(r=>miniRow(s,r)).join(''):'<div class="mini"><span class="d" style="grid-column:1/-1;color:var(--ink-3)">Ingen avganger den neste timen</span></div>';
+  let body;
+  if(!entry)body='<div class="mini"><span class="skel" style="width:32px;height:22px"></span><span class="skel" style="width:70%"></span><span class="skel" style="width:36px"></span></div>';
+  else if(!rows.length)body='<div class="mini"><span class="d" style="grid-column:1/-1;color:var(--ink-3)">Ingen avganger den neste timen</span></div>';
+  else body=stopTimeline({...s,stale:entry.stale},rows,{compact:true}).html||rows.slice(0,2).map(r=>miniRow(s,r)).join('');
   return`<button class="stop-card" type="button" data-stop="${esc(s.id)}"><div class="top"><b>${esc(s.name)}</b>
-    <span class="dist">${fav?ico('star','fav'):''}${d!=null?`${fmtDist(d)} · ${walkMin(d)} min`:''}</span></div>${body}</button>`;
+    <span class="dist">${fav?ico('star','fav'):''}${d!=null?`${fmtDist(d)} · ${walkMin(d)} min`:''}</span></div><div class="sc-body">${body}</div></button>`;
 }
 
 /* ---------- Side: Hjem ---------- */
@@ -796,6 +834,14 @@ pages.home={
     $('#alertsAll')?.addEventListener('click',()=>{buzz(6);router.go('alerts');});
     $('#geoAsk')?.addEventListener('click',()=>{buzz(8);requestGeoOnce();});
     $$('#sheetPage [data-stop]').forEach(b=>b.onclick=()=>{buzz(6);router.go('stop',{id:b.dataset.stop});});
+  },
+  // Tidslinjene oppdateres på stedet; bare nye kort eller endret innhold tegnes på nytt.
+  update(){
+    const t=document.createElement('div');t.innerHTML=this.body();
+    const page=$('#sheetPage'),oc=$$('.stop-card',page),nc=$$('.stop-card',t);
+    const ids=a=>a.map(c=>c.dataset.stop).join(','),rest=el=>[...el.children].filter(c=>!c.classList.contains('stop-card')).map(c=>c.outerHTML).join('');
+    if(ids(oc)!==ids(nc)||rest(page)!==rest(t)){const st=sheetScroll.scrollTop;router.render(null);sheetScroll.scrollTop=st;return;}
+    oc.forEach((o,i)=>{const n=nc[i],ot=$('.top',o),nt=$('.top',n);if(ot.innerHTML!==nt.innerHTML)ot.innerHTML=nt.innerHTML;morphTl($('.sc-body',o),$('.sc-body',n));});
   },
   enter(p,dir){clearRoute();clearPins();loadDeps();}
 };
@@ -916,7 +962,15 @@ pages.results={
     if(!cards.length||cards.length!==state.trips.length||state.tripsLoading){router.render(null);return;}
     cards.forEach(el=>{const p=state.trips[+el.dataset.p],f=firstRide(p);
       setRing(el.querySelector('.ring'),minUntil(p.expectedStartTime),fmtT(p.expectedStartTime));
-      const ap=el.querySelector('.ap');if(ap&&f)ap.outerHTML=approachHtml(f);});
+      const ap=el.querySelector('.ap');if(!ap||!f)return;
+      // Samme spor som sist: flytt bussen og fyllet, så den glir videre i stedet for å hoppe.
+      const t=document.createElement('div');t.innerHTML=approachHtml(f);const n=t.firstElementChild;
+      if(ap.querySelector('.ap-track')&&n.querySelector('.ap-track')){
+        ['title','aria-label'].forEach(a=>ap.setAttribute(a,n.getAttribute(a)||''));
+        ap.querySelector('.ap-rail i').style.width=n.querySelector('.ap-rail i').style.width;
+        const ov=ap.querySelector('.ap-veh'),nv=n.querySelector('.ap-veh');ov.style.left=nv.style.left;ov.className=nv.className;
+        const od=$$('.ap-track>i:not(.ap-end)',ap),nd=$$('.ap-track>i:not(.ap-end)',n);od.forEach((d,k)=>d.className=nd[k]?.className||'');
+      }else ap.replaceWith(n);});
   },
   enter(){if(state.trips.length){drawRoute(state.trips[state.tripIdx]);loadTripCalls();}}
 };
@@ -1035,7 +1089,7 @@ function findStop(id){
 pages.stop={
   initial:'half',peek:168,
   head({id}){
-    const s=findStop(id)||{name:'Holdeplass'},d=s.lat!=null?distTo(s):null,fav=favs.some(f=>f.id===id);
+    const s=findStop(id)||{name:state.deps.get(id)?.name||'Holdeplass'},d=s.lat!=null?distTo(s):null,fav=favs.some(f=>f.id===id);
     return`${backBtn}<div class="titles"><div class="head-title">${esc(s.name)}</div><div class="head-sub">${d!=null?`${fmtDist(d)} · ${walkMin(d)} min å gå`:'Holdeplass'}</div></div>
       <button class="star press" id="favBtn" type="button" aria-pressed="${fav}" aria-label="${fav?'Fjern fra':'Legg til i'} favoritter">${ico('star')}</button>`;
   },
@@ -1047,19 +1101,37 @@ pages.stop={
     const f=stopFilter.get(id);
     const filters=modes.length>1?`<div class="filters" role="group" aria-label="Filtrer">${['all',...modes].map(m=>
       `<button class="filter press" type="button" data-m="${m}" ${m!=='all'?`style="--c:${modeOf(m).c}"`:''} aria-pressed="${(f||'all')===m}">${m==='all'?'Alle':`<i></i>${modeOf(m).n}`}</button>`).join('')}</div>`:'';
-    const list=rows.filter(r=>!f||r.mode===f);
+    const list=rows.filter(r=>!f||r.mode===f),st={...s,stale:entry.stale};
     const al=[...new Set(rows.map(r=>String(r.pub)))].map(c=>alertFor(c)).filter((a,i,arr)=>a&&arr.indexOf(a)===i);
     const alertRow=al.length?`<button class="leg-alert stop-alert press" type="button" data-alerts>${ico('alert')}<span>${esc(al[0].summary)}</span>${al.length>1?`<em>+${al.length-1}</em>`:''}</button>`:'';
-    return alertRow+filters+stopTimeline({...s,stale:entry.stale},list)+(entry.error&&!rows.length?`<div class="state">${ico('alert')}<b>Fikk ikke hentet avganger</b>Prøv igjen om litt.</div>`:
-      list.length?list.map(r=>depRow({...s,stale:entry.stale},r)).join(''):'<div class="state">Ingen avganger den neste timen.</div>')+
-      `<p class="note">Gangtid er anslått fra luftlinje med litt omvei. «Gå nå» gir to minutters margin.</p>`;
+    // Tidslinjen viser de nærmeste avgangene; listen tar bare resten, så ingenting står to ganger.
+    const tl=stopTimeline(st,list),later=list.filter(r=>!tl.shown.has(r));
+    const rest=entry.error&&!rows.length?`<div class="state">${ico('alert')}<b>Fikk ikke hentet avganger</b>Prøv igjen om litt.</div>`:
+      !list.length?'<div class="state">Ingen avganger den neste timen.</div>':
+      later.length?(tl.html?`<div class="label">${tl.hidden?'Flere avganger':'Senere'}</div>`:'')+later.slice(0,40).map(r=>depRow(st,r)).join(''):'';
+    return`<div id="stopTop">${alertRow}${filters}</div><div id="stopTl">${tl.html}</div><div id="stopRest">${rest}</div>`+
+      `<p class="note">Trykk på en avgang for å se hvor den er nå. Det skraverte feltet er tiden du trenger for å gå til holdeplassen.</p>`;
   },
   bind({id}){
     updateStopCallout(id);
     $('#favBtn').onclick=()=>toggleFav(id);
+    this.bindRows(id);
+  },
+  bindRows(id){
     $$('#sheetPage [data-alerts]').forEach(b=>b.onclick=()=>{buzz(6);router.go('alerts');});
     $$('#sheetPage .filter').forEach(b=>b.onclick=()=>{buzz(6);stopFilter.set(id,b.dataset.m==='all'?null:b.dataset.m);router.refresh();});
     $$('#sheetPage .dep[data-sj],#sheetPage .tl-dot[data-sj]').forEach(b=>b.onclick=()=>{if(!b.dataset.sj)return;buzz(6);router.go('journey',{sj:b.dataset.sj,stop:id});});
+  },
+  // Oppdatering på stedet: prikkene glir mot «nå» i stedet for å tegnes på nytt.
+  update(params){
+    const t=document.createElement('div');t.innerHTML=this.body(params);
+    const page=$('#sheetPage'),o={top:$('#stopTop',page),tl:$('#stopTl',page),rest:$('#stopRest',page)};
+    const n={top:$('#stopTop',t),tl:$('#stopTl',t),rest:$('#stopRest',t)};
+    if(!o.tl||!n.tl){router.render(null);return;}
+    const nm=findStop(params.id)?.name||state.deps.get(params.id)?.name,ht=$('#sheetHead .head-title');if(nm&&ht&&ht.textContent!==nm)ht.textContent=nm;
+    o.top.innerHTML=n.top.innerHTML;o.rest.innerHTML=n.rest.innerHTML;
+    morphTl(o.tl,n.tl);
+    this.bindRows(params.id);updateStopCallout(params.id);
   },
   leave(){if(mapLoaded){map.setFilter('stop-sel',['==',['get','id'],'']);map.setFilter('stop-cards',['all',['has','card'],['!=',['get','id'],'']]);}removeStopCallout();},
   enter({id}){
@@ -1170,36 +1242,43 @@ function fcClose(){
 const fcMinKeys=new Map();
 function fcMinutes(key,r,big){
   const m=minUntil(r.exp),prev=fcMinKeys.get(key);fcMinKeys.set(key,m);
-  const tick=prev!=null&&prev!==m?' tick':'';
-  const live=r.rt?'<i class="live"></i>':'<i class="sched" title="Rutetid"></i>';
-  if(m<=0)return`<span class="fc-t${big?' big':''}">${live}<b class="fc-now">nå</b></span>`;
-  if(m>=60)return`<span class="fc-t${big?' big':''}">${live}<b class="${tick}">${fmtT(r.exp)}</b></span>`;
-  return`<span class="fc-t${big?' big':''}">${live}<b class="${tick.trim()}">${m}</b><small>min</small></span>`;
+  const tick=prev!=null&&prev!==m?'tick':'';
+  const live=r.rt?'<i class="live" title="Sanntid"></i>':'<i class="sched" title="Rutetid"></i>';
+  const late=fmtT(r.exp)!==fmtT(r.aimed)&&r.exp>r.aimed?Math.round((r.exp-r.aimed)/60000):0;
+  const lateTag=late>0?`<em class="fc-late" title="${late} min forsinket (rutetid ${fmtT(r.aimed)})">+${late}</em>`:'';
+  if(m<=0)return`<span class="fc-t${big?' big':''}">${live}${lateTag}<b class="fc-now">nå</b></span>`;
+  if(m>=60)return`<span class="fc-t${big?' big':''}">${live}${lateTag}<b class="${tick}">${fmtT(r.exp)}</b></span>`;
+  return`<span class="fc-t${big?' big':''}">${live}${lateTag}<b class="${tick}">${m}</b><small>min</small></span>`;
 }
 
 /* ---------- Flytekort for holdeplass ---------- */
+// Når arket med tidslinjen er oppe, viser kortet på kartet bare neste avgang – ellers de fire neste.
 function updateStopCallout(id){
   const s=findStop(id);if(!s||!mapLoaded||s.lat==null){fcClose();return;}
-  const entry=state.deps.get(id),rows=upcoming(id).slice(0,5),anyRt=rows.some(r=>r.rt);
-  const first=rows[0],rest=rows.slice(1,4);
+  const compact=router.cur.name==='stop'&&sheetUI.snap!=='peek';
+  const entry=state.deps.get(id),rows=upcoming(id).slice(0,compact?1:4),anyRt=rows.some(r=>r.rt);
+  const first=rows[0],rest=rows.slice(1);
   let body;
-  if(!entry)body='<div class="fc-row skel-row"><span class="skel" style="width:34px;height:24px"></span><span class="skel"></span><span class="skel" style="width:40px"></span></div>'.repeat(2);
-  else if(!rows.length)body='<p class="fc-empty">Ingen avganger den neste timen</p>';
+  if(!entry)body='<div class="fc-row skel-row"><span class="skel" style="width:34px;height:24px"></span><span class="skel"></span><span class="skel" style="width:40px"></span></div>'.repeat(compact?1:2);
+  else if(!first)body='<p class="fc-empty">Ingen avganger den neste timen</p>';
   else{
-    const md=modeOf(first.mode),delay=Math.round((first.exp-first.aimed)/60000);
-    body=`<button class="fc-row fc-first" type="button" style="--i:0" data-sj="${esc(first.sj||'')}"><span class="badge badge-l" style="--c:${md.c}">${esc(first.pub)}</span>
-        <span class="fc-dest"><b>${esc(first.dest)}</b><small>${md.n}${first.quay?` · ${first.mode==='rail'||first.mode==='metro'?'spor':'plattform'} ${esc(first.quay)}`:''}${delay>0?` · <span class="late">+${delay} min</span>`:''}</small></span>
+    const qn=first.mode==='rail'||first.mode==='metro'?'Spor':'Plattform';
+    const tags=[first.quay?`<span class="quay" title="${qn} ${esc(first.quay)}" aria-label="${qn} ${esc(first.quay)}">${esc(first.quay)}</span>`:'',occHtml(first.occ)].join('');
+    body=`<button class="fc-row fc-first" type="button" style="--i:0" data-sj="${esc(first.sj||'')}">${lineBadge(first.pub,first.mode,'badge-l')}
+        <span class="fc-dest"><b>${esc(first.dest)}</b>${tags?`<small class="fc-tags">${tags}</small>`:''}</span>
         ${fcMinutes(`${id}|${first.pub}|${first.dest}|${first.aimed}`,first,true)}</button>`+
-      rest.map((r,i)=>`<button class="fc-row" type="button" style="--i:${i+1}" data-sj="${esc(r.sj||'')}"><span class="badge" style="--c:${modeOf(r.mode).c}">${esc(r.pub)}</span>
+      rest.map((r,i)=>`<button class="fc-row" type="button" style="--i:${i+1}" data-sj="${esc(r.sj||'')}">${lineBadge(r.pub,r.mode)}
         <span class="fc-dest">${esc(r.dest)}</span>${fcMinutes(`${id}|${r.pub}|${r.dest}|${r.aimed}`,r,false)}</button>`).join('');
   }
+  fc$.el?.classList.toggle('compact',compact);
   fcOpen({key:'stop:'+id,lngLat:()=>[s.lon,s.lat],onClose:()=>router.back(),
     bind:el=>el.querySelectorAll('.fc-row').forEach(b=>b.addEventListener('click',()=>{buzz(6);
       if(b.dataset.sj)router.go('journey',{sj:b.dataset.sj,stop:id});else snapTo('half');}))},
     `<header class="fc-head"><span class="fc-grip" aria-hidden="true"></span><div class="fc-title"><b>${esc(s.name)}</b>
-      ${anyRt?'<span class="fc-live"><i class="live"></i>Sanntid</span>':'<span class="fc-live sched">Rutetid</span>'}</div>
+      ${anyRt?'<i class="live" title="Sanntid" aria-label="Sanntid"></i>':''}</div>
       <button class="fc-close" type="button" aria-label="Lukk">${ico('x')}</button></header><div class="fc-body">${body}</div>`,
     {label:`Avganger fra ${s.name}`});
+  fc$.el?.classList.toggle('compact',compact);
 }
 function removeStopCallout(){if(fc$.target?.key?.startsWith('stop:'))fcClose();}
 
@@ -1523,6 +1602,9 @@ async function fetchStopDeps(id,n=14){
   const d=await gql(Q_DEP,{id,n});
   return parseCalls(d.stopPlace?.estimatedCalls);
 }
+// Holdeplass-siden: opptil fire avganger per linje og retning den neste timen, så tidslinjen
+// også dekker store knutepunkt (Jernbanetorget har over hundre avganger i timen).
+const Q_DEP_ALL=Q_DEP.replace('estimatedCalls(numberOfDepartures:$n)','estimatedCalls(numberOfDepartures:$n,numberOfDeparturesPerLineAndDestinationDisplay:4,timeRange:3600)');
 function parseCalls(calls){
   const now=Date.now()-60000,seen=new Set(),rows=[];
   (calls||[]).forEach(c=>{
@@ -1538,7 +1620,8 @@ function parseCalls(calls){
   return rows.sort((a,b)=>a.exp-b.exp);
 }
 async function loadStopDeps(id){
-  try{state.deps.set(id,{rows:await fetchStopDeps(id),t:Date.now()});}
+  try{const d=await gql(Q_DEP_ALL,{id,n:150});
+    state.deps.set(id,{rows:parseCalls(d.stopPlace?.estimatedCalls),t:Date.now(),name:d.stopPlace?.name});}
   catch(e){const old=state.deps.get(id);state.deps.set(id,{rows:old?.rows||[],t:old?.t,stale:true,error:true});}
 }
 let depsBusy=false;

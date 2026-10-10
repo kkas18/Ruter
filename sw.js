@@ -1,4 +1,4 @@
-const CACHE='reis-v17';
+const CACHE='reis-v18';
 const ASSETS=[
   './','./index.html','./manifest.webmanifest','./css/app.css','./js/app.js','./js/mapstyle.js',
   './vendor/fonts/schibsted-grotesk-latin.woff2',
