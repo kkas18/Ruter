@@ -178,8 +178,8 @@ body.sheet-tall .map-ctrl{opacity:0;pointer-events:none}
 .pick button.to{background:var(--signal);color:#14191C}
 
 /* Kjøretøy på valgt reise: linjemerke med retningspil. Stiplet ring = beregnet fra sanntid, hel = GPS. */
-.tveh{position:relative;display:grid;place-items:center;min-width:34px;height:26px;padding:0 7px;border-radius:13px;background:var(--c);
-  color:#fff;font:800 12.5px var(--font);border:2.5px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.35);cursor:pointer;z-index:2}
+.tveh{position:relative;display:grid;place-items:center;min-width:42px;height:32px;padding:0 9px;border-radius:16px;background:var(--c);
+  color:#fff;font:800 15px var(--font);border:2.5px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.35);cursor:pointer;z-index:2}
 .tveh span{position:relative;z-index:1}
 .tveh::after{content:'';position:absolute;inset:-7px;border-radius:18px;border:2px solid var(--c);opacity:.55;animation:vehPulse 2s var(--ease-out) infinite}
 .tveh.est::after{border-style:dashed;animation:none;opacity:.7}

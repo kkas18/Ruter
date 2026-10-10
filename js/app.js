@@ -192,6 +192,31 @@ function setBasemap(mode){
   if(mapLoaded){ReisMapStyle.applyTheme(map,resolveTheme(),mode==='sat');applyOverlayTheme();}
 }
 $('#layerBtn').onclick=()=>{buzz(8);setBasemap(isSat()?'map':'sat');toast(isSat()?'Satellitt':'Kart');};
+// Kjøretøymerke med linjenummeret tegnet inn i bildet, så merker som overlapper legger
+// seg pent oppå hverandre (tekst i eget lag ville blandet tallene). Lages ved behov per
+// transportmiddel + linje; GPS-kjøretøy får en grønn live-prikk.
+function badgeImage(mode,line,gps){
+  const color=modeOf(mode).c,label=line||'•',font='800 30px "Schibsted Grotesk", system-ui, sans-serif';
+  const m=document.createElement('canvas').getContext('2d');m.font=font;
+  const H=60,W=Math.max(60,Math.ceil(m.measureText(label).width)+34)+(gps?10:0);
+  const cv=document.createElement('canvas');cv.width=W;cv.height=H;const g=cv.getContext('2d');
+  const top=gps?8:4,bw=W-(gps?12:8);
+  g.beginPath();g.roundRect(4,top,bw,H-top-4,(H-top-4)/2);g.fillStyle=color;g.fill();g.lineWidth=5;g.strokeStyle='#fff';g.stroke();
+  g.font=font;g.fillStyle='#fff';g.textAlign='center';g.textBaseline='middle';g.fillText(label,4+bw/2,top+(H-top-4)/2+1);
+  if(gps){g.beginPath();g.arc(W-11,11,8,0,Math.PI*2);g.fillStyle='#2FD07A';g.fill();g.lineWidth=3.5;g.strokeStyle='#fff';g.stroke();}
+  return g.getImageData(0,0,W,H);
+}
+map.on('styleimagemissing',e=>{
+  const m=/^vb\|(\w+)\|(.*)\|([01])$/.exec(e.id);if(!m||map.hasImage(e.id))return;
+  map.addImage(e.id,badgeImage(m[1],m[2],m[3]==='1'),{pixelRatio:2});
+});
+// Retningspil som roterer rundt merket.
+function headingImage(color){
+  const S=112,cv=document.createElement('canvas');cv.width=cv.height=S;const g=cv.getContext('2d');
+  g.translate(S/2,0);g.beginPath();g.moveTo(0,4);g.lineTo(13,22);g.lineTo(-13,22);g.closePath();
+  g.lineJoin='round';g.lineWidth=5;g.strokeStyle='#fff';g.stroke();g.fillStyle=color;g.fill();
+  return g.getImageData(0,0,S,S);
+}
 function vehicleImage(color,est=false){
   const s=56,cv=document.createElement('canvas');cv.width=cv.height=s;const g=cv.getContext('2d');
   g.translate(s/2,s/2);
@@ -204,7 +229,8 @@ map.on('load',()=>{
   mapLoaded=true;
   const c=overlayColors();
   Object.entries({...MODES,other:{c:'#5D676C'}}).forEach(([k,m])=>{map.addImage('veh-'+k,vehicleImage(m.c),{pixelRatio:2});
-    map.addImage('veh-est-'+k,vehicleImage(m.c,true),{pixelRatio:2});});
+    map.addImage('veh-est-'+k,vehicleImage(m.c,true),{pixelRatio:2});
+    map.addImage('dir-'+k,headingImage(m.c),{pixelRatio:2});});
   ['acc','route','route-stops','stops','vehicles'].forEach(id=>map.addSource(id,{type:'geojson',data:EMPTY}));
   map.addLayer({id:'acc',type:'fill',source:'acc',paint:{'fill-color':c.me,'fill-opacity':.08}});
   map.addLayer({id:'acc-line',type:'line',source:'acc',paint:{'line-color':c.me,'line-opacity':.3,'line-width':1}});
@@ -234,21 +260,28 @@ map.on('load',()=>{
     'text-font':['Noto Sans Bold'],'text-size':['case',['get','minor'],11,12.5],'text-anchor':'left','text-offset':[.9,0],
     'text-max-width':14,'text-optional':true,'symbol-sort-key':['case',['get','minor'],2,1]},
     paint:{'text-color':c.label,'text-halo-color':c.halo,'text-halo-width':1.6}});
+  // Kjøretøy: retningspil under, farget merke med linjenummer over. Vokser når du zoomer inn.
+  const vehScale=['interpolate',['linear'],['zoom'],11.5,.75,14,.95,17,1.2];
+  map.addLayer({id:'vehicles-dir',type:'symbol',source:'vehicles',minzoom:11.5,layout:{
+    'icon-image':['concat','dir-',['get','mode']],'icon-rotate':['get','bearing'],'icon-rotation-alignment':'map',
+    'icon-allow-overlap':true,'icon-ignore-placement':true,'icon-size':vehScale}});
   map.addLayer({id:'vehicles',type:'symbol',source:'vehicles',minzoom:11.5,layout:{
-    'icon-image':['concat',['case',['==',['get','est'],true],'veh-est-','veh-'],['get','mode']],'icon-rotate':['get','bearing'],'icon-rotation-alignment':'map',
-    'icon-allow-overlap':true,'icon-size':['interpolate',['linear'],['zoom'],13,.75,17,1.05]}});
+    'icon-image':['concat','vb|',['get','mode'],'|',['get','line'],'|',['case',['==',['get','est'],true],'0','1']],
+    'icon-allow-overlap':true,'icon-rotation-alignment':'viewport','icon-size':vehScale,
+    'symbol-sort-key':['case',['==',['get','est'],true],1,0]}});
 
   map.on('click','stops',e=>{const f=e.features[0];if(!f)return;buzz(6);
     router.go('stop',{id:f.properties.id});});
-  map.on('click','vehicles',e=>{const p=e.features[0]?.properties||{};buzz(6);
-    toast(`${modeOf(p.mode).n} ${p.line||''}${p.dest?' mot '+p.dest:''} · ${p.est?'beregnet fra sanntid':'GPS'}`);});
+  const vehClick=e=>{const p=e.features[0]?.properties||{};buzz(6);
+    toast(`${modeOf(p.mode).n} ${p.line||''}${p.dest?' mot '+p.dest:''} · ${p.est?'beregnet fra sanntid':'GPS'}`);};
+  map.on('click','vehicles',vehClick);map.on('click','vehicles-dir',vehClick);
   map.on('click','route-stop-minor',e=>{const p=e.features[0]?.properties;if(!p)return;
     new maplibregl.Popup({offset:8,closeButton:false}).setLngLat(e.lngLat)
       .setHTML(`<b>${esc(p.name)}</b><br><span style="color:var(--ink-3)">${esc(p.kind)}${p.time?' · kl. '+fmtT(p.time):''}</span>`).addTo(map);});
   map.on('click','route-stop',e=>{const p=e.features[0]?.properties;if(!p)return;
     new maplibregl.Popup({offset:10,closeButton:false}).setLngLat(e.lngLat)
       .setHTML(`<b>${esc(p.name)}</b><br><span style="color:var(--ink-3)">${esc(p.kind)}${p.time?' · kl. '+fmtT(p.time):''}</span>`).addTo(map);});
-  ['stops','vehicles','route-stop'].forEach(l=>{
+  ['stops','vehicles','vehicles-dir','route-stop'].forEach(l=>{
     map.on('mouseenter',l,()=>map.getCanvas().style.cursor='pointer');
     map.on('mouseleave',l,()=>map.getCanvas().style.cursor='');});
 
