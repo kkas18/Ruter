@@ -168,3 +168,8 @@ Vurdert på 390 px i lys modus, mørk modus og satellitt, med ekte data ved Furu
 - Test på ekte telefoner (iPhone og Android) ute i trafikken: GPS, kompass og dra-gester.
 - Varsel «Gå nå» for en valgt avgang (krever push via service worker).
 - Gjennomgang av universell utforming: skjermleser, kontrast i satellittmodus og store tekststørrelser.
+
+### Se bussen din på valgt reise
+- **På kartet:** strekningen bussen har igjen fram til holdeplassen din tegnes stiplet i linjefargen, med stoppene den skal innom. Bussen vises live.
+- **Spor i statuslinjen:** en vannrett linje med stoppene før holdeplassen din. Bussmerket glir mot det gule ankerpunktet («Din holdeplass») og pulserer svakt. Sporet starter der bussen er (opptil 8 stopp før). Om bord viser sporet veien fram til der du skal av.
+- **«Følg»:** kartet følger bussen jevnt til du drar i kartet selv. Et trykk på teksten viser bussen én gang.
