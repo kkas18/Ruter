@@ -703,3 +703,53 @@ input[type=range]{accent-color:var(--ink);width:120px}
 .diag-list time{color:var(--ink-3);font-variant-numeric:tabular-nums}
 .diag-list b{font-weight:650}
 .diag-list span{grid-column:2;color:var(--ink-2);overflow-wrap:anywhere}
+
+/* ---------- Snarveier: Hjem og Jobb ---------- */
+.places{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:2px 16px 10px}
+.place-cell{position:relative;display:flex;min-width:0}
+.place-tile{flex:1;display:flex;align-items:center;gap:9px;min-width:0;min-height:56px;padding:9px 12px;border-radius:var(--r-m);
+  background:var(--surface-2);text-align:left;transition:background-color var(--t-fast)}
+.place-tile:active{background:var(--surface-3)}
+.place-tile>.g{flex:none;width:28px;height:28px;padding:5px;border-radius:50%;background:var(--surface);color:var(--ink)}
+.place-tile>span{flex:1;min-width:0}
+.place-tile b{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:750;letter-spacing:-.01em}
+.place-tile small{display:block;font-size:12px;font-weight:600;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.place-tile .badge{flex:none;min-width:26px;height:19px;padding:0 5px;font-size:11.5px;border-radius:5px}
+.place-tile.soon small{color:var(--late)}
+.place-tile.add{background:none;border:1.5px dashed var(--line-strong)}
+.place-tile.add>.g{background:var(--surface-2);color:var(--ink-3)}
+.place-tile.add small{color:var(--ink-3)}
+.place-tile.editable{padding-right:44px}
+.place-edit{position:absolute;top:50%;right:0;width:44px;height:44px;margin-top:-22px;display:grid;place-items:center;border-radius:50%}
+.place-edit .g{width:28px;height:28px;padding:6px;border-radius:50%;background:var(--surface);color:var(--ink-2)}
+/* I søket står snarveiene øverst, med luft til listen */
+#suggest .places{margin:4px 16px 14px}
+.pick-card{display:flex;align-items:center}
+.pick-card .pick-ico{display:grid;place-items:center;width:40px;flex:none;color:var(--ink-2)}
+.pick-card .pick-ico .g{width:20px;height:20px}
+.pick-card .route-field{flex:1;padding-left:0}
+
+/* Varselet på Hjem: én linje */
+.notice.slim{padding:9px 12px;min-height:44px}
+.notice.slim .one b{color:var(--ink);font-weight:750;margin-right:4px}
+
+/* ---------- Holdeplass: kompakt liste under tidslinjen ---------- */
+.dep.compact{grid-template-columns:40px 1fr auto;min-height:46px;padding:6px 16px;gap:12px}
+.dep.compact .badge{min-width:36px;height:24px;font-size:12.5px}
+.dep.compact .dest b{font-size:14.5px;font-weight:600}
+.dep.compact .ct{display:flex;align-items:baseline;gap:8px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.dep.compact .ct b{font-size:15px;font-weight:750}
+.dep.compact .ct small{font-size:12px;font-weight:600;color:var(--ink-3)}
+.dep.compact .ct s{font-size:12px;color:var(--ink-3)}
+.dep.compact .ct .late{color:var(--late)}
+.dep.compact .live{align-self:center}
+
+/* ---------- Trafikkmeldinger: sammenfoldede seksjoner ---------- */
+.alert-sec>summary{list-style:none;cursor:pointer;min-height:44px}
+.alert-sec>summary::-webkit-details-marker{display:none}
+.alert-sec>summary em{font-style:normal;margin-left:auto;margin-right:6px;padding:2px 8px;border-radius:99px;background:var(--surface-2);color:var(--ink-2);font-size:12px}
+.alert-sec>summary .g{width:16px;height:16px;transition:transform var(--t-med) var(--ease-out)}
+.alert-sec[open]>summary .g{transform:rotate(90deg)}
+
+/* Planlagte endringer i reisen: én rolig linje, ikke en boks */
+.leg-alert.info{background:none;padding:0;margin-top:2px;min-height:40px;font-size:12.5px;color:var(--ink-3)}

@@ -31,6 +31,7 @@ every(30000,()=>loadEstVehicles());
 every(30000,()=>loadViewDeps());
 every(30000,()=>{if(router.cur.name==='results')loadTripCalls();});
 every(180000,()=>loadAlerts());
+every(60000,()=>{if(router.cur.name==='home')loadShortcuts();});
 every(20000,()=>{if(['home','stop','results','journey'].includes(router.cur.name))router.refresh();},{eco:false});
 every(20000,()=>{if(mapLoaded&&map.getZoom()>=CARD_ZOOM-0.5)renderStopsLayer();},{eco:false});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshNow();});
