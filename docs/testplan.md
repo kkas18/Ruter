@@ -24,6 +24,8 @@ Automatiske tester (`npm run check`) dekker kjernelogikken, og alle flyter er kj
 - [ ] En holdeplass langt unna (mer enn 20 min å gå) har ingen skravering og ingen «Gå nå».
 
 ## 4. Reise
+- [ ] Legg til Hjem fra Hjem-flisen. Flisen viser «Gå om N min» og linjen, og ett trykk åpner reiseforslagene.
+- [ ] Endre og fjern Hjem fra blyanten i søket.
 - [ ] Søk etter et mål. Reiseforslagene har ring («gå om N min»), fargestripe og tilkjøringsspor når bussen er underveis.
 - [ ] Velg en reise: ringen viser «gå om» → «går om» → «gå av om» etter hvert som du går, venter og sitter på.
 - [ ] Om bord: bussen glir langs skinnen i reiselisten, og «Neste: …» stemmer med virkeligheten (noter avvik i stopp).

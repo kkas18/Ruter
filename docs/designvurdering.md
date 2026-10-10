@@ -251,3 +251,27 @@ Revisjonen ble strengere enn tidligere runder: i tillegg til design ble tilgjeng
 - Varsel «Gå nå» (etter telefontesten).
 - Teksten er i px og følger ikke systemets tekststørrelse; bør gå over til rem.
 - Ingen automatiske nettlesertester i CI ennå (flytene er testet manuelt med Playwright).
+
+## Runde 7: visuelle forbedringer og brukervennlighet
+
+Vurderingen etter runde 6 sto seg (snitt 8,0). Med blikk på utseende og brukervennlighet var dette det svakeste: et tomt søk uten snarveier, en stor «Senere»-liste under den kompakte tidslinjen, 70 meldinger åpent på én side, planlagte endringer som grå bokser i reisen og et varsel på to linjer på Hjem.
+
+| Område | Før | Etter | Hvorfor |
+|---|---|---|---|
+| Design | 8,5 | **9** | Søket har innhold fra start; listen under tidslinjen er kompakt; meldingssiden er foldet sammen |
+| Grafikk | 9 | **9** | Uendret |
+| Animasjoner | 8 | **8** | Uendret |
+| Appfølelse | 8 | **8,5** | Hjem og Jobb med ett trykk, med live «gå om N min» |
+| Tilgjengelighet | 7,5 | **7,5** | Uendret |
+| Ytelse og pålitelighet | 8 | **8** | Snarveiene bruker en lett spørring hvert annet minutt |
+| Kodekvalitet | 7 | **7** | Uendret |
+| **Snitt** | **8,0** | **8,1** | |
+
+### Gjort i denne runden
+1. **Hjem og Jobb:** to snarveier øverst på Hjem og i søket. Et lagret sted viser neste reise herfra («Gå om 4 min» og linjen du tar), og ett trykk åpner reiseforslagene. Et tomt sted viser «Legg til» og åpner søket i en egen modus med ett felt. Blyanten i søket endrer stedet, og der kan det også fjernes.
+2. **Søket** viser snarveiene øverst, og deretter nylige mål og favoritter under én overskrift.
+3. **Holdeplass:** avgangene under tidslinjen står i en kompakt liste (klokkeslett først, minutter dempet, 46 px rader).
+4. **Trafikkmeldinger:** «Rundt deg» står åpent; «Andre avvik i Ruter-området» og «Planlagte endringer» er foldet sammen med antall.
+5. **Reisen:** planlagte endringer er én rolig linje med i-ikon, ikke en boks. Avvik som påvirker reisen har fortsatt varselfarge.
+6. **Hjem:** varselet om avvik er én linje («1 avvik · …»).
+7. **Reisetittelen:** tidsrommet har luft rundt tankestreken («23:52 – 00:32»).

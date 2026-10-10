@@ -83,6 +83,7 @@ async function loadNearby(lat,lon){
     setNetworkState(true);
     renderStopsLayer();
     if(router.cur.name==='home')router.refresh();
+    loadShortcuts();
     await loadDeps(true);
   }catch(e){
     if(seq!==nearbySeq)return;
@@ -387,6 +388,38 @@ function rememberTarget(t){
 
 /* ---------- Reisesøk ---------- */
 let tripSeq=0;
+/* ---------- Snarveier: Hjem og Jobb ----------
+   For hvert fast sted hentes neste reise herfra (lett spørring, hvert annet minutt), så Hjem kan
+   vise «gå om 6 min · fremme 17:42» uten at du søker. */
+const Q_SHORT=`query($fl:Float!,$fp:Float!,$tl:Float!,$tp:Float!){
+  trip(from:{coordinates:{latitude:$fl,longitude:$fp}},to:{coordinates:{latitude:$tl,longitude:$tp}},numTripPatterns:4){
+    tripPatterns{expectedStartTime expectedEndTime legs{mode line{publicCode}}}}}`;
+const shortcuts=new Map(); // nøkkel → {t,lat,lon,here|start,end,ride}
+async function loadShortcuts(force=false){
+  if(!state.pos)return;
+  const keys=Object.keys(PLACE_KINDS).filter(k=>places[k]);
+  let changed=false;
+  await Promise.all(keys.map(async k=>{
+    const p=places[k],old=shortcuts.get(k),same=old&&old.lat===p.lat&&old.lon===p.lon;
+    if(!force&&same&&Date.now()-old.t<120000&&(!old.start||old.start>Date.now()))return;
+    if(geoDist(state.pos,[p.lat,p.lon])<150){shortcuts.set(k,{t:Date.now(),lat:p.lat,lon:p.lon,here:true});changed=true;return;}
+    try{
+      const d=await gql(Q_SHORT,{fl:state.pos[0],fp:state.pos[1],tl:p.lat,tp:p.lon});
+      const best=(d.trip?.tripPatterns||[]).map(x=>({...x,s:ts(x.expectedStartTime)})).filter(x=>x.s>Date.now()-30000).sort((a,b)=>a.s-b.s)[0];
+      const ride=best?.legs?.find(l=>l.mode!=='foot');
+      shortcuts.set(k,best?{t:Date.now(),lat:p.lat,lon:p.lon,start:best.s,end:ts(best.expectedEndTime),
+        ride:ride?{code:ride.line?.publicCode||modeOf(ride.mode).n,mode:ride.mode}:null}:{t:Date.now(),lat:p.lat,lon:p.lon,none:true});
+      changed=true;
+    }catch(e){report('snarveier',e);}
+  }));
+  if(changed&&router.cur.name==='home')router.refresh();
+}
+function goToPlace(k){
+  const p=places[k];if(!p)return;
+  state.dest={name:p.name,lat:p.lat,lon:p.lon};state.fromSel=null;state.timeMode='now';
+  startTripSearch(router.cur.name==='search');
+}
+
 function startTripSearch(fromSearch=false){
   if(!state.dest)return;
   state.tripsLoading=true;state.tripError=null;state.trips=[];state.tripIdx=0;

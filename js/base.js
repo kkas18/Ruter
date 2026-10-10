@@ -39,6 +39,10 @@ coreCfg.walkKmh=settings.walkKmh;
 const asArray=v=>Array.isArray(v)?v:[];
 let favs=asArray(loadJSON('reisFavs',[]));
 let recentTargets=asArray(loadJSON('reisRecentTargets',[]));
+// Faste steder for reiser med ett trykk.
+const PLACE_KINDS={home:{n:'Hjem',icon:'home'},work:{n:'Jobb',icon:'work'}};
+let places=(v=>v&&typeof v==='object'&&!Array.isArray(v)?v:{})(loadJSON('reisPlaces',{}));
+const savePlaces=()=>saveJSON('reisPlaces',places);
 const saveSettings=()=>saveJSON('reisSettings',settings);
 
 const state={pos:null,acc:0,heading:null,follow:false,nearbyAt:null,nearby:[],viewStops:new Map(),

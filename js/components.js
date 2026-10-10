@@ -93,6 +93,27 @@ function stopTimeline(s,rows,{compact=false,maxLanes=compact?2:6,width=0}={}){
   </div>`;
   return{html,shown,W,hidden};
 }
+// Snarveiene Hjem og Jobb. På Hjem viser de neste reise herfra; i søket kan de endres.
+function placeTiles({editable=false}={}){
+  return`<div class="places" role="group" aria-label="Snarveier">${Object.entries(PLACE_KINDS).map(([k,K])=>{
+    const p=places[k];
+    if(!p)return`<button class="place-tile add press" type="button" data-pick="${k}">${ico(K.icon)}<span><b>${K.n}</b><small>Legg til</small></span></button>`;
+    // Første linje: navn og linjen du tar. Andre linje: når du må gå. Ankomst står i skjermleserteksten.
+    const sc=shortcuts.get(k);let info,badge='',arrive='';
+    if(sc?.here)info='Du er her';
+    else if(sc?.start){const m=minUntil(sc.start);info=m<=0?'Gå nå':`Gå om ${m} min`;arrive=`, fremme kl. ${fmtT(sc.end)}`;
+      if(sc.ride&&!editable)badge=lineBadge(sc.ride.code,sc.ride.mode,'',false);}
+    else if(sc?.none)info='Ingen reise funnet';
+    else info=state.pos?'Henter…':p.name;
+    const urgent=sc?.start&&minUntil(sc.start)<=2;
+    return`<span class="place-cell"><button class="place-tile press${urgent?' soon':''}${editable?' editable':''}" type="button" data-place="${k}" aria-label="${K.n}: ${esc(p.name)}. ${esc(info+arrive)}">${ico(K.icon)}
+      <span><b>${K.n}${badge}</b><small>${esc(info)}</small></span></button>${editable?`<button class="place-edit press" type="button" data-pick="${k}" aria-label="Endre ${K.n}">${ico('edit')}</button>`:''}</span>`;
+  }).join('')}</div>`;
+}
+function bindPlaceTiles(root=document){
+  $$('[data-place]',root).forEach(b=>b.onclick=()=>{buzz(8);goToPlace(b.dataset.place);});
+  $$('[data-pick]',root).forEach(b=>b.onclick=e=>{e.stopPropagation();buzz(6);router.go('search',{pick:b.dataset.pick});});
+}
 // Oppdater en tidslinje på stedet når de samme avgangene fortsatt vises: prikkene glir i stedet for å hoppe.
 const tlSig=el=>[...el.querySelectorAll('.tl-lane')].map(l=>`${l.dataset.k}:${[...l.querySelectorAll('.tl-dot,.tl-late')].map(d=>d.className.split(' ')[0]+d.dataset.sj).join(',')}`).join('|')
   +(el.querySelector('.tl-axis')?.textContent||'')+(el.querySelector('.tl-legend,.tl-compact>.tl-more')?'+':'');
@@ -102,6 +123,13 @@ function morphTl(o,n){
   const parts='.tl-dot,.tl-late,.tl-walk,.tl-dest,.tl-legend,.tl-more',od=$$(parts,o),nd=$$(parts,n);
   od.forEach((e,i)=>{const m=nd[i];if(!m)return;e.style.cssText=m.style.cssText;e.className=m.className;
     if(e.innerHTML!==m.innerHTML)e.innerHTML=m.innerHTML;const al=m.getAttribute('aria-label');if(al)e.setAttribute('aria-label',al);});
+}
+// Kompakt rad for avganger lenger fram (under tidslinjen): klokkeslett først, minutter dempet.
+function depRowCompact(s,r){
+  const m=minUntil(r.exp),late=fmtT(r.exp)!==fmtT(r.aimed)&&r.exp>r.aimed;
+  return`<button class="dep compact press" type="button" data-sj="${esc(r.sj||'')}" data-stop="${esc(s.id)}">${lineBadge(r.pub,r.mode,'',false)}
+    <span class="dest"><b>${esc(r.dest)}</b></span>
+    <span class="ct">${r.rt?'<i class="live" title="Sanntid"></i>':''}${late?`<s>${fmtT(r.aimed)}</s>`:''}<b class="${late?'late':''}">${fmtT(r.exp)}</b><small>${m<60?`${m} min`:''}</small></span></button>`;
 }
 function miniRow(s,r){
   const m=minUntil(r.exp);
