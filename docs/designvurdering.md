@@ -118,3 +118,11 @@ Dette er fjernet fordi det var en kopi av noe annet:
 - **Kortene er kartsymboler**, så kartet selv sorterer bort kort som ville overlappet. Stasjoner og favoritter vinner, og kjøretøy blokkerer ikke kortene.
 - **Trykk på et kort** åpner avgangstavlen med en gang, fordi tidene allerede er hentet. Den valgte holdeplassen viser den større boblen i stedet for kortet.
 - **Kortene har egne farger** for lys modus, mørk modus og satellitt.
+
+### Flytekort
+- Avgangsboblen er byttet ut med et flyttbart glasskort. Det er koblet til holdeplassen (eller kjøretøyet) med en tynn stiplet linje og følger med når kartet flyttes.
+- **Dra kortet dit du vil.** Appen husker hvor du plasserte det, og legger ellers kortet der det ikke dekker posisjonen din, søkefeltet eller arket.
+- **Innhold:** neste avgang vises stort med sanntidsprikk og eventuell forsinkelse, og de tre neste kompakt under. «Sanntid» eller «Rutetid» står i toppen.
+- **Bevegelse:** kortet vokser fram fra punktet det hører til, radene glir inn etter tur, og minuttene tikker. Ved oppdateringer animeres ikke radene på nytt.
+- **Kjøretøy:** trykk på et kjøretøy viser det samme kortet, med linje, retning, kilde (GPS eller beregnet) og tid til neste stopp, og kortet følger kjøretøyet mens det kjører.
+- **Avgangskortene på kartet** viser nå en grønn sanntidsprikk foran tider som er live.
