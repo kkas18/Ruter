@@ -173,3 +173,20 @@ Vurdert på 390 px i lys modus, mørk modus og satellitt, med ekte data ved Furu
 - **På kartet:** strekningen bussen har igjen fram til holdeplassen din tegnes stiplet i linjefargen, med stoppene den skal innom. Bussen vises live.
 - **Spor i statuslinjen:** en vannrett linje med stoppene før holdeplassen din. Bussmerket glir mot det gule ankerpunktet («Din holdeplass») og pulserer svakt. Sporet starter der bussen er (opptil 8 stopp før). Om bord viser sporet veien fram til der du skal av.
 - **«Følg»:** kartet følger bussen jevnt til du drar i kartet selv. Et trykk på teksten viser bussen én gang.
+
+## Mindre tekst, mer visualisering
+
+Prinsipp: **ett stort tall per skjerm, resten som grafikk, tekst bare når du trykker.** Setningene ligger fortsatt i `aria-label`/`title`, så skjermlesere får hele forklaringen.
+
+| Før | Nå |
+|---|---|
+| «Buss fra Furuveien om 14 min» i hvert reiseforslag | **Nedtellingsring** («gå om») som tømmes og går fra grønn → gul (≤ 5 min) → rød (≤ 1 min) |
+| Stolpe + egen rad med linjebrikker | **Fargestripe**: én bit per etappe med lengde etter tid, linjenummeret står inni, gange som grå bit med minutter |
+| Ingenting om hvor bussen er før du velger reise | **Tilkjøringsspor** i hvert forslag: bussen glir mot holdeplassen din (vises bare når den er underveis) |
+| «Buss 70 er 11 stopp unna Furuveien / Går kl. 20:24 · om 14 min · beregnet fra sanntid» | Ring + «11 stopp unna» + spor; kilden er et lite merke (`GPS` eller `≈`) |
+| «Buss mot X · Plattform B · Sanntid · 5 stopp underveis» | Linjeskilt → mål, plattform som liten brikke, sanntid som prikk, stoppene som prikker; bussen glir langs skinnen mens du sitter på |
+| Avgangsliste alene | **Tidslinje** de neste 30 (eller 60) minuttene: én rad per linje og retning, hel prikk = sanntid, hul = rutetid, rød hale = forsinkelse, skravert felt = tiden du trenger for å gå dit |
+| Avvik som tekstbanner | Gult **!**-merke på linjeskiltet der linjen vises én gang (reise, reisestripe); én kompakt meldingsrad per holdeplass |
+| — | **Belegg** som 1–3 figurer der operatøren deler det (Ruter gjør det foreløpig ikke, da vises ingenting) |
+
+Typografi: titler 21 → 19 px, avgangstall 22 → 20 px, sekundærtekst 12–12,5 px. Tall ruller mykt når de endres.

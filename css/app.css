@@ -264,8 +264,8 @@ body.sat .fc-leader line{stroke:#fff;opacity:.9}
 .sheet-head{flex:none;padding:2px 16px 10px;display:flex;align-items:center;gap:8px;min-height:44px}
 .sheet-head .back{margin-left:-8px}
 .sheet-head .titles{flex:1;min-width:0}
-.head-title{font-size:21px;font-weight:800;letter-spacing:-.03em;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.head-sub{font-size:13px;color:var(--ink-3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.head-title{font-size:19px;font-weight:800;letter-spacing:-.03em;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.head-sub{font-size:12.5px;color:var(--ink-3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 button.titles{text-align:left}
 .sheet-scroll{flex:1;min-height:0;overflow-y:hidden;overscroll-behavior:contain;padding:0 0 calc(var(--sab) + 24px)}
 .sheet.full .sheet-scroll{overflow-y:auto;touch-action:pan-y}
@@ -277,7 +277,7 @@ button.titles{text-align:left}
 .label{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;font-weight:700;color:var(--ink-3);
   letter-spacing:.01em;margin:18px 16px 8px}
 .label button{color:var(--ink-2);font-weight:650}
-.note{color:var(--ink-3);font-size:12.5px;line-height:1.5;margin:16px 16px 0}
+.note{color:var(--ink-3);font-size:12px;line-height:1.5;margin:16px 16px 0}
 
 /* Varsel og statuser */
 .notice{display:flex;align-items:center;gap:10px;width:calc(100% - 32px);margin:2px 16px 6px;text-align:left;padding:11px 14px;border-radius:var(--r-m);
@@ -302,11 +302,11 @@ button.titles{text-align:left}
 .stop-card{display:block;width:100%;text-align:left;padding:12px 16px 10px;border-top:1px solid var(--line)}
 .stop-card:active{background:var(--surface-2)}
 .stop-card .top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:6px}
-.stop-card b{font-size:16px;font-weight:700;letter-spacing:-.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stop-card b{font-size:15px;font-weight:700;letter-spacing:-.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .stop-card .dist{display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--ink-3);white-space:nowrap}
 .stop-card .dist .fav{width:13px;height:13px;fill:var(--signal);stroke:var(--ink);stroke-width:1.5}
 .mini{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:4px 0}
-.mini .d{font-size:14px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini .d{font-size:13.5px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mini .m{font-size:15px;font-weight:750;white-space:nowrap}
 .mini .m small{font-size:12px;font-weight:600;color:var(--ink-3);margin-left:2px}
 .mini .m.now{color:var(--on-signal);background:var(--signal);font-size:12.5px;font-weight:800;padding:2px 7px;border-radius:5px}
@@ -326,13 +326,13 @@ button.titles{text-align:left}
 @keyframes bump{40%{transform:scale(1.35) rotate(-8deg)}}
 .dep{display:grid;grid-template-columns:46px 1fr auto;align-items:center;gap:12px;min-height:58px;padding:9px 16px;border-top:1px solid var(--line)}
 .dep .dest{min-width:0}
-.dep .dest b{display:block;font-size:15.5px;font-weight:620;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dep .dest b{display:block;font-size:15px;font-weight:620;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dep .dest small{display:block;color:var(--ink-3);font-size:12.5px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .reach{font-weight:700;color:var(--ink)}
 .reach.now{color:var(--late)}
 .reach.caution{color:var(--ink-3);font-weight:600}
 .when{display:flex;flex-direction:column;align-items:flex-end;min-width:56px}
-.when .n{display:flex;align-items:baseline;gap:3px;font-weight:750;font-size:22px;letter-spacing:-.03em;line-height:1}
+.when .n{display:flex;align-items:baseline;gap:3px;font-weight:750;font-size:20px;letter-spacing:-.03em;line-height:1}
 .when .n small{font-size:12.5px;font-weight:600;color:var(--ink-3);letter-spacing:0}
 .tick{animation:tick .5s var(--ease-out)}
 @keyframes tick{0%{opacity:0;transform:translateY(-6px)}}
@@ -347,15 +347,16 @@ button.dep{width:100%;text-align:left}
 button.dep:active{background:var(--surface-2)}
 
 /* ---------- Live status med spor ---------- */
-.live-status{flex-direction:column;align-items:stretch;gap:0;cursor:default}
-.ls-top{display:flex;align-items:flex-start;gap:10px}
-.ls-top .live{margin-top:6px}
-.ls-txt{flex:1;min-width:0;cursor:pointer}
-.ls-follow{flex:none;display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 11px;border-radius:99px;font-size:12.5px;font-weight:700;
+.live-status{flex-direction:row;align-items:center;gap:12px;cursor:default;padding:10px 10px 10px 12px}
+.ls-main{flex:1;min-width:0;cursor:pointer}
+.ls-cap{display:flex;align-items:center;gap:6px;min-width:0}
+.ls-cap b{font-size:14px;font-weight:750;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ls-cap .src{flex:none;font-style:normal;font-size:10px;font-weight:800;letter-spacing:.02em;padding:1px 5px;border-radius:4px;background:var(--surface-3);color:var(--ink-3)}
+.ls-follow{flex:none;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;
   background:var(--surface);color:var(--ink-2);border:1px solid var(--line);transition:background-color var(--t-fast),color var(--t-fast)}
-.ls-follow .g{width:14px;height:14px}
+.ls-follow .g{width:17px;height:17px}
 .ls-follow[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
-.lt{position:relative;height:30px;margin:12px 10px 0}
+.lt{position:relative;height:28px;margin:6px 8px 0}
 .lt-rail{position:absolute;left:0;right:0;top:13px;height:4px;border-radius:2px;background:var(--line-strong);overflow:hidden}
 .lt-fill{position:absolute;left:0;top:0;bottom:0;background:var(--c);border-radius:2px;transition:width 1s linear}
 .lt-dots i{position:absolute;top:11px;width:8px;height:8px;margin-left:-4px;border-radius:50%;background:var(--surface);border:2px solid var(--line-strong);transition:border-color .3s}
@@ -366,7 +367,7 @@ button.dep:active{background:var(--surface-2)}
   transition:left 1s linear;z-index:1}
 .lt-veh.far{opacity:.8}
 .lt-veh::after{content:'';position:absolute;inset:-5px;border-radius:14px;border:2px solid var(--c);opacity:0;animation:vehPulse 2s var(--ease-out) infinite}
-.lt-ends{display:flex;justify-content:space-between;gap:10px;margin:6px 2px 0;font-size:11.5px;color:var(--ink-3);font-weight:600}
+.lt-ends{display:flex;justify-content:space-between;gap:10px;margin:2px 0 0;font-size:11px;color:var(--ink-3);font-weight:600}
 .lt-ends em{font-style:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lt-ends em:last-child{color:var(--ink);text-align:right}
 
@@ -376,6 +377,8 @@ button.dep:active{background:var(--surface-2)}
 .jv-walk{display:flex;align-items:center;gap:10px;margin:0 16px 12px;font-size:13.5px;color:var(--ink-2);line-height:1.35}
 .jv-walk .g{color:var(--ink-3)}
 .jv-walk b{color:var(--ink)}
+.jv-walk small{color:var(--ink-3);font-size:12px}
+.jv-walk .reach{margin-left:auto;font-size:12.5px}
 .jv-sticky{position:sticky;top:0;z-index:3;background:var(--surface);padding-bottom:4px;box-shadow:0 8px 8px -8px rgba(20,25,28,.12)}
 .jv-list{padding:2px 0 4px}
 .jv-stop,.jv-between{display:grid;grid-template-columns:58px 26px 1fr;column-gap:8px;align-items:center;min-height:38px;padding:0 16px;cursor:pointer}
@@ -438,27 +441,98 @@ button.dep:active{background:var(--surface-2)}
 .opt:disabled{color:var(--ink-3);cursor:default;font-size:14px}
 
 /* ---------- Reiseforslag ---------- */
-.trip{display:block;width:100%;text-align:left;padding:14px 16px 13px;border-top:1px solid var(--line);
+.trip{display:flex;align-items:flex-start;gap:14px;width:100%;text-align:left;padding:14px 16px 13px;border-top:1px solid var(--line);
   animation:rise var(--t-slow) var(--ease-out) both;position:relative}
 .trip:active{background:var(--surface-2)}
 .trip.sel::before{content:'';position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:0 3px 3px 0;background:var(--ink)}
 @keyframes rise{from{opacity:0;transform:translateY(10px)}}
-.trip-top{display:flex;align-items:baseline;gap:10px}
-.trip-top .t{font-size:20px;font-weight:750;letter-spacing:-.03em}
-.trip-top .t span{color:var(--ink-3);font-weight:500;margin:0 3px}
-.trip-top .dur{margin-left:auto;font-size:14px;font-weight:650;color:var(--ink-2)}
-.trip-top .fast{font-size:11.5px;font-weight:800;color:var(--on-signal);background:var(--signal);padding:2px 6px;border-radius:5px;margin-left:6px}
-.bar{display:flex;gap:3px;height:8px;margin:11px 0 10px}
-.bar i{display:block;height:100%;border-radius:3px;background:var(--c);min-width:6px;transform-origin:left;animation:grow .6s var(--ease-out) both}
-.bar i.walk{background:repeating-linear-gradient(90deg,var(--line-strong) 0 4px,transparent 4px 7px)}
+.trip-main{flex:1;min-width:0}
+.trip-top{display:flex;align-items:baseline;gap:8px}
+.trip-top .t{font-size:17px;font-weight:750;letter-spacing:-.025em}
+.trip-top .t span{color:var(--ink-3);font-weight:500;margin:0 2px}
+.trip-top .dur{margin-left:auto;font-size:13px;font-weight:650;color:var(--ink-3)}
+.trip-top .fast{font-size:10.5px;font-weight:800;color:var(--on-signal);background:var(--signal);padding:2px 6px;border-radius:5px}
 @keyframes grow{from{transform:scaleX(0)}}
-.legs{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
-.legs .walk{display:inline-flex;align-items:center;gap:2px;color:var(--ink-3);font-size:12.5px;font-weight:600}
-.legs .walk .g{width:15px;height:15px}
-.legs .sep{width:12px;height:12px;color:var(--line-strong)}
-.trip-foot{display:flex;justify-content:space-between;gap:8px;margin-top:9px;font-size:12.5px;color:var(--ink-3)}
-.trip-foot b{color:var(--ink);font-weight:650}
-.trip-foot .soon{color:var(--late);font-weight:650}
+/* Stripen: hver etappe er en bit med lengde etter tid; linjenummeret står inni. */
+.stripe{display:flex;gap:3px;height:24px;margin:9px 0 0}
+.seg{position:relative;display:flex;align-items:center;justify-content:center;gap:1px;min-width:0;border-radius:6px;overflow:hidden;
+  transform-origin:left;animation:grow .6s var(--ease-out) both}
+.seg.ride{min-width:38px;background:var(--c);color:#fff}
+.seg.ride b{font-size:12.5px;font-weight:800;letter-spacing:-.01em}
+.seg.walk{min-width:34px;color:var(--ink-3);background:var(--surface-2)}
+.seg.walk .g{width:14px;height:14px}
+.seg.walk b{font-size:11.5px;font-weight:700}
+.seg.has-alert::after{content:'';position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:var(--signal);box-shadow:0 0 0 1.5px var(--c)}
+/* Tilkjøring: kjøretøyet glir mot holdeplassen du skal gå på. */
+.ap{display:flex;align-items:center;gap:10px;margin-top:9px;min-height:18px}
+.ap-name{flex:none;max-width:48%;font-size:12px;font-weight:600;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ap-name time{margin-left:4px;font-weight:700;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.ap-track{position:relative;flex:1;height:18px;margin:0 6px 0 4px}
+.ap-rail{position:absolute;left:0;right:0;top:8px;height:2px;border-radius:1px;background:var(--line-strong)}
+.ap-rail i{display:block;height:100%;background:var(--c);border-radius:1px;transition:width 1s linear}
+.ap-track>i{position:absolute;top:6px;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:var(--surface);border:1.5px solid var(--line-strong)}
+.ap-track>i.on{border-color:var(--c)}
+.ap-track .ap-end{left:100%;top:4px;width:10px;height:10px;margin-left:-5px;background:var(--signal);border:2px solid var(--ink)}
+.ap-veh{position:absolute;top:0;transform:translateX(-50%);min-width:24px;height:18px;padding:0 5px;border-radius:9px;background:var(--c);color:#fff;
+  display:grid;place-items:center;font-size:10.5px;font-weight:800;border:1.5px solid var(--surface);box-shadow:0 1px 4px rgba(0,0,0,.25);transition:left 1s linear}
+.ap-veh.far{opacity:.75}
+.ap-veh.far::before{content:'';position:absolute;right:100%;top:7px;width:10px;height:2px;margin-right:2px;background:repeating-linear-gradient(90deg,var(--c) 0 2px,transparent 2px 4px)}
+
+/* ---------- Nedtellingsring ---------- */
+.ring{--s:44px;position:relative;flex:none;display:grid;place-items:center;align-content:center;width:var(--s);height:var(--s);color:var(--ink);line-height:1}
+.ring svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:3.5}
+.ring .trk{stroke:var(--surface-3)}
+.ring .val{stroke:var(--live);stroke-linecap:round;stroke-dasharray:100;stroke-dashoffset:calc(100 - var(--f,1) * 100);
+  transition:stroke-dashoffset .8s var(--ease-out),stroke .4s}
+.ring.soon .val{stroke:var(--signal)}
+.ring.go .val{stroke:var(--late)}
+.ring b{position:relative;font-size:calc(var(--s) * .36);font-weight:800;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.ring small{position:relative;font-size:calc(var(--s) * .2);font-weight:650;color:var(--ink-3);margin-top:1px}
+.ring small:empty{display:none}
+.ring.clock b{font-size:calc(var(--s) * .24);letter-spacing:-.02em}
+.ring.go b{color:var(--late)}
+.ring b.tick{animation:roll .45s var(--ease-out)}
+@keyframes roll{0%{opacity:0;transform:translateY(-40%)}}
+.trip .ring .val{animation:ringIn .9s var(--ease-out) both}
+@keyframes ringIn{from{stroke-dashoffset:100}}
+
+/* ---------- Holdeplass: tidslinje ---------- */
+.tl{margin:2px 16px 14px;padding:10px 12px 10px;border-radius:var(--r-m);background:var(--surface-2)}
+.tl-axis,.tl-lane{display:grid;grid-template-columns:104px 1fr;column-gap:10px;align-items:center}
+.tl-axis>div{position:relative;height:16px;margin:0 12px}
+.tl-axis em{position:absolute;top:0;transform:translateX(-50%);font-style:normal;font-size:10.5px;font-weight:700;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.tl-axis em:first-child{transform:none}
+.tl-axis em:last-child{transform:translateX(-100%)}
+.tl-lane{min-height:34px}
+.tl-lab{display:flex;align-items:center;gap:6px;min-width:0}
+.tl-lab .badge{flex:none;min-width:28px;height:21px;font-size:12px}
+.tl-lab small{min-width:0;font-size:11.5px;font-weight:600;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-plot{position:relative;height:34px;margin-right:12px;margin-left:12px}
+.tl-plot::before{content:'';position:absolute;left:-12px;right:-12px;top:50%;height:2px;margin-top:-1px;border-radius:1px;background:color-mix(in srgb,var(--c) 22%,var(--line))}
+.tl-walk{position:absolute;left:-12px;top:5px;bottom:5px;border-radius:6px 0 0 6px;
+  background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--ink-3) 16%,transparent) 0 3px,transparent 3px 7px)}
+.tl-late{position:absolute;top:50%;height:4px;margin-top:-2px;border-radius:2px;background:var(--late);opacity:.55}
+.tl-dot{position:absolute;top:50%;transform:translate(-50%,-50%);min-width:26px;height:26px;padding:0 4px;border-radius:13px;
+  background:var(--c);color:#fff;font-size:11.5px;font-weight:800;font-variant-numeric:tabular-nums;border:2px solid var(--surface-2);
+  transition:transform var(--t-fast)}
+.tl-dot:active{transform:translate(-50%,-50%) scale(.92)}
+.tl-dot.sched{background:var(--surface);color:var(--ink);border:2px solid var(--c)}
+.tl-dot.miss{opacity:.42}
+.tl-legend{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11px;font-weight:600;color:var(--ink-3)}
+.tl-legend .g{width:13px;height:13px}
+.tl-walk-key{width:16px;height:10px;border-radius:3px;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--ink-3) 30%,transparent) 0 2px,transparent 2px 5px)}
+.dep .dest small{display:flex;align-items:center;gap:8px}
+.dep .dest small .reach{font-size:12px}
+
+/* ---------- Avvik og belegg som symboler ---------- */
+.badge{position:relative}
+.badge.has-alert::after{content:'!';position:absolute;top:-6px;right:-6px;width:14px;height:14px;border-radius:50%;background:var(--signal);color:var(--on-signal);
+  font-size:10px;font-weight:900;line-height:14px;text-align:center;box-shadow:0 0 0 2px var(--surface)}
+.occ{display:inline-flex;align-items:flex-end;gap:0;color:var(--line-strong);vertical-align:-2px}
+.occ .g{width:11px;height:11px;stroke-width:2.4;margin-right:-2px}
+.occ.o1 .g:nth-child(-n+1),.occ.o2 .g:nth-child(-n+2),.occ.o3 .g{color:var(--ink-2)}
+.occ.o3 .g{color:var(--late)}
 
 /* ---------- Reisen: linjediagram ---------- */
 .jsum{display:flex;gap:6px;flex-wrap:wrap;padding:0 16px 14px}
@@ -472,12 +546,33 @@ button.dep:active{background:var(--surface-2)}
 .leg .rail .node{position:relative;z-index:1;width:16px;height:16px;margin-top:2px;border-radius:50%;background:var(--surface);border:3.5px solid var(--c)}
 .leg.walk .rail .node{border-color:var(--ink-3);border-width:2.5px;width:12px;height:12px;margin-top:4px}
 .leg .body{padding-bottom:18px;min-width:0}
-.leg .place{font-weight:700;font-size:15px;line-height:1.3}
-.leg .what{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13.5px;font-weight:600}
-.leg .what small{color:var(--ink-3);font-weight:500;font-size:12.5px}
+.leg .place{font-weight:700;font-size:14.5px;line-height:1.3}
+.leg .what{display:flex;align-items:center;gap:8px;margin-top:7px;font-size:13.5px;font-weight:600;min-width:0}
+.leg .what small{color:var(--ink-3);font-weight:500;font-size:12px}
+.leg .wk{display:inline-flex;align-items:center;gap:3px;color:var(--ink-2)}
+.leg .wk .g{width:16px;height:16px;color:var(--ink-3)}
+.leg .to{display:inline-flex;align-items:center;gap:4px;min-width:0;font-weight:650}
+.leg .to .g{width:15px;height:15px;color:var(--ink-3)}
+.leg .to span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.leg-tags{display:inline-flex;align-items:center;gap:7px;margin-left:auto;flex:none}
+.quay{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 5px;border-radius:6px;border:1.5px solid var(--line-strong);
+  font-size:11.5px;font-weight:800;color:var(--ink-2)}
+.leg-alert{display:flex;align-items:center;gap:7px;width:100%;margin-top:8px;padding:7px 10px;border-radius:9px;background:var(--warn-bg);
+  font-size:12.5px;font-weight:600;color:var(--ink);text-align:left}
+.leg-alert .g{width:15px;height:15px;color:var(--warn)}
+.leg-alert span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.leg-alert em{flex:none;font-style:normal;font-size:11px;font-weight:800;color:var(--warn)}
+.stop-alert{width:auto;margin:0 16px 10px}
+.sdots{display:inline-flex;gap:4px;margin-right:6px}
+.sdots i{width:6px;height:6px;border-radius:50%;border:1.5px solid var(--c);background:var(--surface)}
+.leg.done{opacity:.5}
+.rveh{position:absolute;z-index:2;left:50%;top:calc(18px + (100% - 30px) * var(--k,0));transform:translate(-50%,-2px);min-width:28px;height:20px;padding:0 5px;
+  border-radius:10px;background:var(--c);color:#fff;font-size:10.5px;font-weight:800;display:grid;place-items:center;
+  border:2px solid var(--surface);box-shadow:0 2px 6px rgba(0,0,0,.25);transition:top 1s linear}
+.rveh::after{content:'';position:absolute;inset:-5px;border-radius:13px;border:2px solid var(--c);opacity:0;animation:vehPulse 2s var(--ease-out) infinite}
 .leg .meta{color:var(--ink-3);font-size:12.5px;margin-top:3px}
 .leg details{margin-top:6px;font-size:13px;color:var(--ink-2)}
-.leg summary{cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:4px;min-height:32px;font-weight:650;color:var(--ink-2)}
+.leg summary{cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:2px;min-height:32px;font-size:12px;font-weight:650;color:var(--ink-3)}
 .leg summary::-webkit-details-marker{display:none}
 .leg summary .g{width:14px;height:14px;transition:transform var(--t-med) var(--ease-out)}
 .leg details[open] summary .g{transform:rotate(90deg)}
