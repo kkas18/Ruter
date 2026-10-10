@@ -33,6 +33,7 @@
   <symbol id="i-walk" viewBox="0 0 24 24"><circle cx="13" cy="4.5" r="1.8"/><path d="m10 21 2-6 2.5 2.5V21M8 12.5 9.5 9l3.5-1 2 3.5 2.5 1M12 15l1-7"/></symbol>
   <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4.5 12h14M13 6.5l5.5 5.5-5.5 5.5"/></symbol>
   <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="6" r="3.2"/><path d="M5.5 21v-3.5A4.5 4.5 0 0 1 10 13h4a4.5 4.5 0 0 1 4.5 4.5V21"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8h.01"/></symbol>
   <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 9.5v4m0 3.5h.01M10.3 4.2 2.6 17.8A2 2 0 0 0 4.3 21h15.4a2 2 0 0 0 1.7-3.2L13.7 4.2a2 2 0 0 0-3.4 0Z"/></symbol>
   <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 5.5 6.5 6.5L9 18.5"/></symbol>
   <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5.5 8.5 12l6.5 6.5"/></symbol>
@@ -103,6 +104,7 @@
     <button class="search-bar press" id="searchBar" type="button">
       <svg class="g"><use href="#i-search"/></svg><span>Hvor vil du?</span>
     </button>
+    <div class="net-chip" id="netChip" role="status" hidden>Frakoblet</div>
     <button class="round press" id="menuBtn" type="button" aria-label="Innstillinger"><svg class="g"><use href="#i-gear"/></svg></button>
   </div>
 
@@ -111,10 +113,9 @@
     <button class="round press" id="layerBtn" type="button" aria-label="Vis satellitt" aria-pressed="false"><svg class="g"><use href="#i-layers"/></svg></button>
     <button class="round press" id="locateBtn" type="button" aria-label="Vis posisjonen min" aria-pressed="false"><svg class="g"><use href="#i-locate"/></svg></button>
   </div>
-  <div class="net-chip" id="netChip" role="status" hidden>Frakoblet</div>
 
   <!-- Arket: én stabel med sider i stedet for faner -->
-  <section class="sheet" id="sheet" aria-live="polite">
+  <section class="sheet" id="sheet" aria-label="Innhold">
     <div class="sheet-handle" id="sheetHandle" role="button" tabindex="0" aria-label="Endre høyden på panelet"><span></span></div>
     <header class="sheet-head" id="sheetHead"></header>
     <div class="sheet-scroll" id="sheetScroll"><div class="sheet-page" id="sheetPage"></div></div>
@@ -127,10 +128,20 @@
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="sr-only" id="srLive" role="status" aria-live="polite" aria-atomic="true"></div>
 <noscript><p style="padding:24px">REIS krever JavaScript.</p></noscript>
 
 <script src="vendor/maplibre/maplibre-gl.js"></script>
 <script src="js/mapstyle.js"></script>
-<script src="js/app.js"></script>
+<script src="js/core.js"></script>
+<script src="js/base.js"></script>
+<script src="js/map.js"></script>
+<script src="js/sheet.js"></script>
+<script src="js/components.js"></script>
+<script src="js/floatcard.js"></script>
+<script src="js/pages.js"></script>
+<script src="js/data.js"></script>
+<script src="js/live.js"></script>
+<script src="js/main.js"></script>
 </body>
 </html>

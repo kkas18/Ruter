@@ -1,6 +1,7 @@
-const CACHE='reis-v18';
+const CACHE='reis-v19';
 const ASSETS=[
-  './','./index.html','./manifest.webmanifest','./css/app.css','./js/app.js','./js/mapstyle.js',
+  './','./index.html','./manifest.webmanifest','./css/app.css','./js/mapstyle.js',
+  './js/core.js','./js/base.js','./js/map.js','./js/sheet.js','./js/components.js','./js/floatcard.js','./js/pages.js','./js/data.js','./js/live.js','./js/main.js',
   './vendor/fonts/schibsted-grotesk-latin.woff2',
   './vendor/maplibre/maplibre-gl.js','./vendor/maplibre/maplibre-gl.css',
   './icons/mark.svg','./icons/icon-192.png','./icons/icon-512.png',
