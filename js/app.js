@@ -177,8 +177,6 @@ function applyOverlayTheme(){
   const set=(l,p,v)=>map.getLayer(l)&&map.setPaintProperty(l,p,v);
   set('route-case','line-color',c.case);set('route-walk','line-color',c.walk);
   set('route-stop','circle-color',c.case);set('route-stop-minor','circle-color',c.case);
-  set('stops','circle-stroke-color',c.stopRing);
-  set('stops','circle-color',['case',['get','fav'],'#FFC800',c.stopFill]);
   ['stops-label','stops-label-major'].forEach(l=>{set(l,'text-color',c.label);set(l,'text-halo-color',c.halo);});
   set('acc','fill-color',c.me);set('acc-line','line-color',c.me);
   set('route-stop-label','text-color',c.label);set('route-stop-label','text-halo-color',c.halo);
@@ -237,17 +235,24 @@ map.on('load',()=>{
   map.addLayer({id:'acc-line',type:'line',source:'acc',paint:{'line-color':c.me,'line-opacity':.3,'line-width':1}});
   // Holdeplasser: stasjoner (tog, T-bane, trikk, båt) er større og får navn først;
   // bussholdeplasser får navn når du zoomer inn. Navn som kolliderer sorteres bort.
-  map.addLayer({id:'stops',type:'circle',source:'stops',minzoom:12,paint:{
-    'circle-radius':['interpolate',['linear'],['zoom'],12,['case',['get','major'],3.5,2],15,['case',['get','major'],6.5,5.5],18,8],
-    'circle-color':['case',['get','fav'],'#FFC800',c.stopFill],
-    'circle-stroke-color':c.stopRing,'circle-stroke-width':['interpolate',['linear'],['zoom'],12,['case',['get','major'],2,1.2],16,2.5],
+  // Holdeplasser: zoomet ut som små prikker i transportmiddelets farge, nærmere som
+  // piktogram (buss, trikk, T-bane, tog, båt) – gjenkjennelig på et øyeblikk.
+  ['bus','tram','metro','rail','water'].forEach(m=>{map.addImage('stop-'+m,stopIcon(m,false),{pixelRatio:2});map.addImage('stop-'+m+'-fav',stopIcon(m,true),{pixelRatio:2});});
+  map.addLayer({id:'stops',type:'circle',source:'stops',minzoom:12,maxzoom:STOP_ICON_ZOOM,paint:{
+    'circle-radius':['interpolate',['linear'],['zoom'],12,['case',['get','major'],3.5,2.2],STOP_ICON_ZOOM,['case',['get','major'],6,4.5]],
+    'circle-color':['get','color'],'circle-stroke-color':'#FFFFFF','circle-stroke-width':['interpolate',['linear'],['zoom'],12,1,14,1.8],
     'circle-opacity':['interpolate',['linear'],['zoom'],12,0,12.5,1],'circle-stroke-opacity':['interpolate',['linear'],['zoom'],12,0,12.5,1]}});
+  map.addLayer({id:'stop-icons',type:'symbol',source:'stops',minzoom:STOP_ICON_ZOOM,layout:{
+    'icon-image':['concat','stop-',['get','icon'],['case',['get','fav'],'-fav','']],
+    'icon-size':['interpolate',['linear'],['zoom'],STOP_ICON_ZOOM,['case',['get','major'],.8,.7],16,['case',['get','major'],1.05,.95],18,['case',['get','major'],1.3,1.2]],
+    'icon-allow-overlap':true,'icon-ignore-placement':true,'symbol-sort-key':['get','rank']},
+    paint:{'icon-opacity':['interpolate',['linear'],['zoom'],STOP_ICON_ZOOM,0,STOP_ICON_ZOOM+.25,1]}});
   map.addLayer({id:'stop-sel',type:'circle',source:'stops',filter:['==',['get','id'],''],paint:{
     'circle-radius':['interpolate',['linear'],['zoom'],12,9,16,13],'circle-color':'rgba(255,200,0,0.25)',
     'circle-stroke-color':'#FFC800','circle-stroke-width':3.5}},'stops');
   const stopLabel=(id,minzoom,filter,size)=>map.addLayer({id,type:'symbol',source:'stops',minzoom,filter,layout:{
     'text-field':['get','name'],'text-font':['Noto Sans Bold'],'text-size':size,
-    'text-variable-anchor':['top','bottom','right','left'],'text-radial-offset':.85,'text-justify':'auto',
+    'text-variable-anchor':['top','bottom','right','left'],'text-radial-offset':['interpolate',['linear'],['zoom'],12,.85,STOP_ICON_ZOOM,1.6,17,1.9],'text-justify':'auto',
     'text-max-width':9,'text-optional':true,'symbol-sort-key':['get','rank'],'text-padding':3},
     paint:{'text-color':c.label,'text-halo-color':c.halo,'text-halo-width':1.6,
       'text-opacity':['interpolate',['linear'],['zoom'],minzoom,0,minzoom+.4,1]}});
@@ -295,8 +300,8 @@ map.on('load',()=>{
       if(hit)router.go('journey',{sj:hit.sj,stop:card.properties.id});
       else router.go('stop',{id:card.properties.id,snap:'peek'});
       return;}
-    const hits=map.queryRenderedFeatures([[x-18,y-18],[x+18,y+18]],{layers:['stops','stops-label-major','stops-label']});
-    const best=hits.map(f=>{const pt=map.project(f.geometry.coordinates);return{f,d:Math.hypot(pt.x-x,pt.y-y)-(f.layer.id==='stops'?0:4)};})
+    const hits=map.queryRenderedFeatures([[x-18,y-18],[x+18,y+18]],{layers:['stops','stop-icons','stops-label-major','stops-label']});
+    const best=hits.map(f=>{const pt=map.project(f.geometry.coordinates);return{f,d:Math.hypot(pt.x-x,pt.y-y)-(f.layer.id==='stops'||f.layer.id==='stop-icons'?0:4)};})
       .sort((a,b)=>a.d-b.d)[0];
     // Nær en holdeplass vinner den, selv om et kjøretøy står oppå (vanlig ved travle stopp).
     const veh=map.queryRenderedFeatures([[x-4,y-4],[x+4,y+4]],{layers:['vehicles','vehicles-dir']})[0];
@@ -313,12 +318,12 @@ map.on('load',()=>{
   map.on('click','route-stop',e=>{const p=e.features[0]?.properties;if(!p)return;
     new maplibregl.Popup({offset:10,closeButton:false}).setLngLat(e.lngLat)
       .setHTML(`<b>${esc(p.name)}</b><br><span style="color:var(--ink-3)">${esc(p.kind)}${p.time?' · kl. '+fmtT(p.time):''}</span>`).addTo(map);});
-  ['stops','stops-label','stops-label-major','stop-cards','vehicles','vehicles-dir','route-stop'].forEach(l=>{
+  ['stops','stop-icons','stops-label','stops-label-major','stop-cards','vehicles','vehicles-dir','route-stop'].forEach(l=>{
     map.on('mouseenter',l,()=>map.getCanvas().style.cursor='pointer');
     map.on('mouseleave',l,()=>map.getCanvas().style.cursor='');});
 
   map.addLayer({id:'stop-cards',type:'symbol',source:'stops',minzoom:CARD_ZOOM,filter:['all',['has','card'],['!=',['get','id'],'']],layout:{
-    'icon-image':['get','card'],'icon-anchor':'bottom','icon-padding':4,'symbol-sort-key':['get','rank'],
+    'icon-image':['get','card'],'icon-anchor':'bottom','icon-offset':[0,-14],'icon-padding':4,'symbol-sort-key':['get','rank'],
     'icon-allow-overlap':false},paint:{'icon-opacity':['interpolate',['linear'],['zoom'],CARD_ZOOM,0,CARD_ZOOM+.3,1]}});
   map.moveLayer('stop-sel'); // valgt holdeplass øverst, også over kjøretøy
   setBasemap(settings.basemap);paintTheme();renderStopsLayer();renderAcc();map.setPadding(mapPadding());
@@ -380,6 +385,37 @@ function renderAcc(){
     pts.push([lon+r*Math.cos(a)/(111320*Math.cos(lat*Math.PI/180)),lat+r*Math.sin(a)/110540]);}
   setData('acc',fc([{type:'Feature',geometry:{type:'Polygon',coordinates:[pts]},properties:{}}]));
 }
+/* ---------- Holdeplassikoner ----------
+   Avrundet kvadrat i transportmiddelets farge med hvitt piktogram, tegnet i
+   24-enhets rutenett (samme som appens ikoner). Favoritter får en gul stjerne. */
+const STOP_ICON_ZOOM=14;
+function stopIcon(mode,fav){
+  const S=64,cv=document.createElement('canvas');cv.width=cv.height=S;const g=cv.getContext('2d');
+  g.shadowColor='rgba(0,0,0,.28)';g.shadowBlur=5;g.shadowOffsetY=1.5;
+  g.beginPath();g.roundRect(8,6,48,48,13);g.fillStyle='#fff';g.fill();g.shadowColor='transparent';
+  g.beginPath();g.roundRect(11,9,42,42,10.5);g.fillStyle=modeOf(mode).c;g.fill();
+  // piktogram i 24-rutenett, sentrert i den fargede flaten
+  g.save();g.translate(14,12);g.scale(1.5,1.5);g.fillStyle='#fff';g.strokeStyle='#fff';g.lineCap='round';g.lineJoin='round';
+  const C=modeOf(mode).c,rr=(x,y,w,h,r,fill)=>{g.beginPath();g.roundRect(x,y,w,h,r);g.fillStyle=fill;g.fill();};
+  const dot=(x,y,r,fill)=>{g.beginPath();g.arc(x,y,r,0,Math.PI*2);g.fillStyle=fill;g.fill();};
+  if(mode==='bus'){rr(4.5,3.5,15,15,3,'#fff');rr(6.5,5.5,11,5.2,1.2,C);dot(7.8,14.6,1.1,C);dot(16.2,14.6,1.1,C);rr(6,18,3.2,2.6,1,'#fff');rr(14.8,18,3.2,2.6,1,'#fff');}
+  else if(mode==='tram'){g.lineWidth=1.6;g.beginPath();g.moveTo(8.5,2.8);g.lineTo(15.5,2.8);g.moveTo(12,2.8);g.lineTo(12,5.5);g.stroke();
+    rr(5.5,5.5,13,13,3.2,'#fff');rr(7.5,7.5,9,4.6,1.2,C);dot(9.2,15.2,1.1,C);dot(14.8,15.2,1.1,C);
+    g.lineWidth=1.6;g.beginPath();g.moveTo(8,18.5);g.lineTo(6.5,21);g.moveTo(16,18.5);g.lineTo(17.5,21);g.stroke();}
+  else if(mode==='metro'){g.beginPath();g.arc(12,12,9,0,Math.PI*2);g.fillStyle='#fff';g.fill();
+    g.fillStyle=C;g.font='900 13px "Schibsted Grotesk", system-ui, sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('T',12,12.8);}
+  else if(mode==='rail'){rr(5.5,3,13,15,4,'#fff');rr(7.5,5.2,9,4.4,1.2,C);dot(9,14,1.1,C);dot(15,14,1.1,C);
+    g.lineWidth=1.6;g.beginPath();g.moveTo(8.5,18);g.lineTo(6,21.5);g.moveTo(15.5,18);g.lineTo(18,21.5);g.moveTo(7.2,20.2);g.lineTo(16.8,20.2);g.stroke();}
+  else{g.beginPath();g.moveTo(3.5,14);g.lineTo(20.5,14);g.lineTo(17.5,19);g.lineTo(6.5,19);g.closePath();g.fill();
+    rr(8,8.5,8,5,1.2,'#fff');rr(11,5,2,4,.6,'#fff');g.lineWidth=1.4;g.beginPath();g.moveTo(4,21.5);g.quadraticCurveTo(6,20.3,8,21.5);g.quadraticCurveTo(10,22.7,12,21.5);g.quadraticCurveTo(14,20.3,16,21.5);g.quadraticCurveTo(18,22.7,20,21.5);g.stroke();}
+  g.restore();
+  if(fav){ // gul stjerne i hjørnet
+    g.save();g.translate(52,10);g.beginPath();for(let i=0;i<10;i++){const r=i%2?4.2:9.5,a=-Math.PI/2+i*Math.PI/5;g.lineTo(Math.cos(a)*r,Math.sin(a)*r);}g.closePath();
+    g.fillStyle='#FFC800';g.fill();g.lineWidth=2;g.strokeStyle='#14191C';g.stroke();g.restore();
+  }
+  return g.getImageData(0,0,S,S);
+}
+
 /* ---------- Avgangskort på kartet ----------
    Fra gatenivå får hver holdeplass et lite kort med navn og de tre neste
    avgangene. Avgangene for hele utsnittet hentes i én forespørsel. Kortene
@@ -479,7 +515,8 @@ async function loadViewDeps(force=false){
 function stopProps(s){
   const fav=favs.some(f=>f.id===s.id),m=s.modes||[];
   const rank=fav?0:m.includes('rail')?1:m.includes('metro')?2:(m.includes('tram')||m.includes('water'))?3:4;
-  const p={id:s.id,name:s.name,fav,rank,major:rank<4};
+  const icon=m.includes('rail')?'rail':m.includes('metro')?'metro':m.includes('tram')?'tram':m.includes('water')?'water':'bus';
+  const p={id:s.id,name:s.name,fav,rank,major:rank<4,icon,color:modeOf(icon).c};
   const card=cardKey(s);if(card)p.card=card;
   return p;
 }
@@ -660,6 +697,13 @@ function stopCard(s){
 }
 
 /* ---------- Side: Hjem ---------- */
+// Meldinger som gjelder linjer som går fra holdeplassene rundt deg eller favorittene dine.
+function myLines(){
+  const codes=new Set();
+  [...favs,...state.nearby.slice(0,8)].forEach(s=>upcoming(s.id).forEach(r=>codes.add(String(r.pub))));
+  return codes;
+}
+function relevantAlerts(){const mine=myLines();return state.alerts.filter(a=>(a.lines||[]).some(l=>mine.has(l)));}
 pages.home={
   initial:'half',peek:196,
   head(){
@@ -667,19 +711,22 @@ pages.home={
       <button class="icon-btn press" id="homeRefresh" type="button" aria-label="Oppdater avganger">${ico('refresh')}</button>`;
   },
   body(){
-    const n=state.alerts.length;
-    let h=n?`<button class="notice press" id="alertsNotice" type="button">${ico('alert')}<span><b>${n} ${plural(n,'trafikkmelding','trafikkmeldinger')}</b><span class="one">${esc(state.alerts[0].summary)}</span></span>${ico('chev')}</button>`:'';
+    // Bare meldinger som angår deg får plass øverst; resten ligger rolig nederst.
+    const rel=relevantAlerts(),n=rel.length,all=state.alerts.length;
+    let h=n?`<button class="notice press" id="alertsNotice" type="button">${ico('alert')}<span><b>${n} ${plural(n,'melding','meldinger')} for linjer rundt deg</b><span class="one">${esc(rel[0].summary)}</span></span>${ico('chev')}</button>`:'';
     if(favs.length)h+=`<div class="label">Favoritter</div>${favs.map(stopCard).join('')}`;
     const near=state.nearby.filter(s=>!favs.some(f=>f.id===s.id)).slice(0,8);
     if(near.length)h+=`<div class="label">I nærheten</div>${near.map(stopCard).join('')}`;
     else if(!favs.length)h+=state.nearbyAt?`<div class="state">${ico('stop')}<b>Ingen holdeplasser her</b>Flytt kartet eller søk etter et sted.</div>`:
       `<div class="mini" style="padding:12px 16px">${'<span class="skel" style="height:40px"></span>'}</div>`;
     if(!state.pos&&state.nearbyAt)h+=`<p class="note">Slå på posisjon for å se holdeplassene rundt deg. <button class="reach" id="geoAsk" type="button">Bruk posisjonen min</button></p>`;
+    if(all)h+=`<button class="quiet-link press" id="alertsAll" type="button">${ico('alert')}<span>Trafikkmeldinger</span><em>${all}</em>${ico('chev')}</button>`;
     return h;
   },
   bind(){
     $('#homeRefresh').onclick=()=>{buzz(8);$('#homeRefresh').classList.add('spin');loadDeps(true).finally(()=>$('#homeRefresh')?.classList.remove('spin'));};
     $('#alertsNotice')?.addEventListener('click',()=>{buzz(6);router.go('alerts');});
+    $('#alertsAll')?.addEventListener('click',()=>{buzz(6);router.go('alerts');});
     $('#geoAsk')?.addEventListener('click',()=>{buzz(8);requestGeoOnce();});
     $$('#sheetPage [data-stop]').forEach(b=>b.onclick=()=>{buzz(6);router.go('stop',{id:b.dataset.stop});});
   },
@@ -1189,11 +1236,15 @@ pages.alerts={
     if(!state.alerts.length)return`<div class="state">${ico('check')}<b>Ingen avvik</b>Trafikken går som normalt.</div>`;
     const fmtWhen=ts=>{const d=new Date(ts);const today=d.toDateString()===new Date().toDateString();
       return today?`kl. ${fmtT(d)}`:d.toLocaleDateString('nb-NO',{day:'numeric',month:'short'})+` kl. ${fmtT(d)}`;};
-    return state.alerts.map((a,i)=>{
+    const mine=myLines();
+    const item=(a,i)=>{
       const t=a.start||a.end?`${a.start?'Fra '+fmtWhen(a.start):''}${a.end?`${a.start?' til ':'Til '}${fmtWhen(a.end)}`:''}`:'';
+      const ls=(a.lines||[]).slice(0,6).map(l=>`<span class="badge${mine.has(l)?'':' dim'}">${esc(l)}</span>`).join('');
       return`<article class="alert" style="animation-delay:${Math.min(i,8)*30}ms"><span class="sev ${a.sev}" aria-hidden="true"></span><div>
-        <h4>${esc(a.summary)}</h4>${a.desc&&a.desc!==a.summary?`<p>${esc(a.desc)}</p>`:''}${t?`<time>${t}</time>`:''}</div></article>`;
-    }).join('');
+        ${ls?`<div class="alert-lines">${ls}</div>`:''}<h4>${esc(a.summary)}</h4>${a.desc&&a.desc!==a.summary?`<p>${esc(a.desc)}</p>`:''}${t?`<time>${t}</time>`:''}</div></article>`;};
+    const rel=state.alerts.filter(a=>(a.lines||[]).some(l=>mine.has(l))),rest=state.alerts.filter(a=>!rel.includes(a));
+    return(rel.length?`<div class="label">Rundt deg</div>${rel.map(item).join('')}`:'')+
+      (rest.length?`<div class="label">${rel.length?'Øvrige':'Alle'} i Ruter-området</div>${rest.map((a,i)=>item(a,i+rel.length)).join('')}`:'');
   }
 };
 
@@ -1530,7 +1581,10 @@ async function loadAlerts(){
       if(end&&new Date(end).getTime()<now)continue;
       if(start&&new Date(start).getTime()>now+864e5)continue;
       const summary=langText(el,'Summary');if(!summary)continue;
-      list.push({sev:sevClass(tagText(el,'Severity')),summary,desc:langText(el,'Description'),start,end});
+      // Hvilke linjer gjelder meldingen? (RUT:Line:70 → «70»)
+      const aff=el.getElementsByTagName('Affects')[0];
+      const lines=[...new Set([...(aff?aff.getElementsByTagName('LineRef'):[])].map(n=>n.textContent.split(':').pop()))];
+      list.push({sev:sevClass(tagText(el,'Severity')),summary,desc:langText(el,'Description'),start,end,lines});
     }
     list.sort((a,b)=>SEV_RANK[a.sev]-SEV_RANK[b.sev]||(new Date(b.start)-new Date(a.start)));
     state.alerts=list.slice(0,40);state.alertsAt=Date.now();
@@ -1571,7 +1625,12 @@ async function searchPlaces(q){
       const score=f=>{const n=f.name.toLocaleLowerCase('nb-NO'),km=geoDist(focus,[f.lat,f.lon])/1000;
         return(n===needle?100:n.startsWith(needle)?45:n.includes(needle)?20:0)+(f.kind==='Holdeplass'||f.kind==='Knutepunkt'?14:f.kind==='Gate'||f.kind==='Adresse'?6:0)+
           (km<15?40:km<60?20:km<150?6:0);};
-      return[...unique.values()].sort((a,b)=>score(b)-score(a)).slice(0,12);
+      let list=[...unique.values()].sort((a,b)=>score(b)-score(a));
+      // Med nok treff i nærheten (60 km) tas fjerne treff (Halden, Lillehammer …) bort, og adresser begrenses til fem.
+      const km=f=>geoDist(focus,[f.lat,f.lon])/1000;
+      if(list.filter(f=>km(f)<60).length>=3)list=list.filter(f=>km(f)<60);
+      let addr=0;list=list.filter(f=>!(f.kind==='Adresse'||f.kind==='Gate')||++addr<=5);
+      return list.slice(0,12);
     }
   }
   try{
