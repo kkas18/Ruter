@@ -33,14 +33,14 @@ function stopLive(){
 async function startLive(p){
   stopLive();live.trip=p;live.fitted=false;const seq=live.seq;
   const rides=(p.legs||[]).filter(l=>l.mode!=='foot'&&l.serviceJourney?.id);
-  live.jobs=rides.map(l=>({leg:l,sj:l.serviceJourney.id,color:modeOf(l.mode).c,code:l.line?.publicCode||modeOf(l.mode).n}));
+  live.jobs=rides.map(l=>({leg:l,sj:l.serviceJourney.id,color:modeOf(l.mode).c,on:modeOf(l.mode).o,code:l.line?.publicCode||modeOf(l.mode).n}));
   await Promise.all(live.jobs.map(async j=>{
     try{const d=await sjQuery(Q_SJ,j.sj);const sj=d.serviceJourney;if(!sj)return;j.date=d.date;
       j.calls=sj.estimatedCalls||[];
       j.pts=sj.pointsOnLink?.points?decodePoly(sj.pointsOnLink.points):j.calls.filter(c=>c.quay).map(c=>[c.quay.longitude,c.quay.latitude]);
       j.cum=prepPath(j.pts);j.stopS=projectStops(j.pts,j.cum,j.calls);
-      j.board=nearestCallIdx(j.calls,j.leg.fromPlace?.quay,j.leg.fromPlace?.name);
-      j.alight=nearestCallIdx(j.calls,j.leg.toPlace?.quay,j.leg.toPlace?.name);
+      j.board=nearestCallIdx(j.calls,j.leg.fromPlace?.quay,j.leg.fromPlace?.name,ts(j.leg.expectedStartTime));
+      j.alight=nearestCallIdx(j.calls,j.leg.toPlace?.quay,j.leg.toPlace?.name,ts(j.leg.expectedEndTime),true);
       j.gps=await fetchVehicleGps(j.sj);
     }catch(e){report('startLive',e);}
   }));
@@ -75,7 +75,7 @@ async function refreshLegs(p){
   if(router.cur.name==='trip')router.refresh();
 }
 function vehicleEl(j){
-  const el=document.createElement('button');el.type='button';el.className='tveh';el.style.setProperty('--c',j.color);
+  const el=document.createElement('button');el.type='button';el.className='tveh';el.style.setProperty('--c',j.color);el.style.setProperty('--o',j.on);
   el.innerHTML=`<i class="arrow"></i><span>${esc(j.code)}</span>`;
   el.onclick=e=>{e.stopPropagation();buzz(6);const st=liveText(j);toast(st?plainText(st.text):`${modeOf(j.leg.mode).n} ${j.code}`);};
   return el;
@@ -170,16 +170,19 @@ function updateLiveBox(){
   if(end<=start){track.hidden=ends.hidden=true;return;}
   const pos=e.state==='start'?start-0.6:e.at+Math.max(0,Math.min(1,frac));
   const pct=Math.max(-4,Math.min(100,(pos-start)/(end-start)*100));
-  track.hidden=ends.hidden=false;track.style.setProperty('--c',j.color);
+  track.hidden=ends.hidden=false;track.style.setProperty('--c',j.color);track.style.setProperty('--o',j.on);
   const n=end-start,dots=box.querySelector('.lt-dots');
+  dots.classList.toggle('many',n>12);
   if(dots.dataset.key!==`${start}-${end}`){dots.dataset.key=`${start}-${end}`;
     dots.innerHTML=Array.from({length:n+1},(_,i)=>`<i style="left:${i/n*100}%" class="${i===n?'end':''}"></i>`).join('');}
   [...dots.children].forEach((d,i)=>d.classList.toggle('on',start+i<=e.at&&e.state!=='start'));
   track.querySelector('.lt-fill').style.width=Math.max(0,pct)+'%';
   const v=track.querySelector('.lt-veh');v.textContent=j.code;v.style.left=pct+'%';v.classList.toggle('far',pos<start);
   const [a,b]=ends.children;
-  a.textContent=e.state==='start'?(j.calls[0]?.quay?.name||''):(j.calls[Math.max(start,Math.min(end,e.at))]?.quay?.name||'');
   b.textContent=j.calls[end]?.quay?.name||'';
+  // Står kjøretøyet ved holdeplassen sporet ender i, står navnet bare én gang.
+  const from=e.state==='start'?(j.calls[0]?.quay?.name||''):(j.calls[Math.max(start,Math.min(end,e.at))]?.quay?.name||'');
+  a.textContent=from===b.textContent?'':from;
 }
 // Reisesiden: kjøretøyet glir langs skinnen til etappen du sitter på; fullførte etapper tones ned.
 function placeRailVehicles(){

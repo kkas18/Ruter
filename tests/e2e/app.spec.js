@@ -60,8 +60,22 @@ test('Holdeplass: tidslinje, og en prikk åpner turen med alle stopp',async({pag
   await expectAccessible(page,'Holdeplass');
   await flows.openJourney(page);
   expect(await page.locator('.jv-list .jv-stop').count()).toBeGreaterThan(3);
-  await expect(page.locator('#sheetHead .jv-title .badge')).toBeVisible();
+  // Linjemerket i toppen har piktogrammet for transportmiddelet.
+  await expect(page.locator('#sheetHead .jv-title .badge.with-icon svg')).toBeVisible();
   await expectAccessible(page,'Turen');
+});
+
+test('Ringlinje: begge passeringene vises, og den andre åpner turen der',async({page})=>{
+  await flows.home(page);
+  await flows.openStop(page);
+  const ring=await flows.openRing(page);
+  expect(ring,'en tur med to avganger fra holdeplassen (T-bane 5)').not.toBeNull();
+  // «Din holdeplass» er den andre gangen turen passerer holdeplassen, ikke den første.
+  const stops=await page.locator('.jv-list .jv-stop').evaluateAll(els=>els.map(e=>({i:+e.dataset.i,mine:e.classList.contains('mine'),
+    name:e.querySelector('.jv-name').firstChild.textContent})));
+  const mine=stops.find(s=>s.mine),same=stops.filter(s=>s.name===mine.name);
+  expect(same.length,`turen passerer ${mine.name} to ganger`).toBe(2);
+  expect(mine.i,'andre passering').toBe(same[1].i);
 });
 
 test('Søk med tastatur, færre bytter og reisen med varsel, deling og billett',async({page})=>{
@@ -103,6 +117,14 @@ test('Trafikkmeldinger: gruppert, og ingen brudd på tilgjengeligheten',async({p
   await flows.alerts(page);
   await expect(page.locator('#sheetHead .head-title')).toHaveText('Trafikkmeldinger');
   await expectAccessible(page,'Trafikkmeldinger');
+  // Lange meldinger er kortet ned til to linjer og foldes ut med «Vis mer» (også i en sammenfoldet seksjon).
+  const more=page.locator('#sheetPage .alert .more').first();
+  if(!(await more.isVisible()))await page.locator('#sheetPage details.alert-sec',{has:page.locator('.more')}).first().locator('summary').click();
+  await expect(more).toHaveAttribute('aria-expanded','false');
+  await more.click();
+  await expect(more).toHaveAttribute('aria-expanded','true');
+  await expect(more).toHaveText('Vis mindre');
+  await expect(page.locator('#'+await more.getAttribute('aria-controls'))).toHaveClass(/open/);
 });
 
 test('Frakoblet: tydelig beskjed og ingen feilmeldinger',async({page,context})=>{

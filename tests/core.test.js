@@ -52,6 +52,17 @@ test('parseCalls hopper over avstigning og gamle avganger, slår sammen samme tu
   assert.equal(rows[0].pub,'70');assert.equal(rows[0].mode,'bus');assert.equal(rows[0].quay,'A');assert.equal(rows[0].rt,true);
 });
 
+test('parseCalls: samme tur fra to plattformer er én avgang, men ringlinjens to passeringer er to',()=>{
+  const now=Date.now();
+  const call=(min,dest,quay,mode='metro')=>({expectedDepartureTime:iso(now+min*MIN),aimedDepartureTime:iso(now+min*MIN),realtime:true,
+    destinationDisplay:{frontText:dest},quay:{publicCode:quay},serviceJourney:{id:'tur',journeyPattern:{line:{publicCode:'5',transportMode:mode}}}});
+  // T-bane 5: toget går «Ringen via Storo», og samme tog kommer tilbake som «Vestli» 26 minutter senere.
+  assert.deepEqual(C.parseCalls([call(2,'Ringen via Storo','1'),call(28,'Vestli','1')]).map(r=>r.dest),['Ringen via Storo','Vestli']);
+  // En buss som stopper ved to plattformer på samme holdeplass med to minutter imellom: én avgang, den første.
+  const bus=C.parseCalls([call(3,'Tjuvholmen','B','bus'),call(5,'Tjuvholmen','H','bus')]);
+  assert.equal(bus.length,1);assert.equal(bus[0].quay,'B');
+});
+
 test('decodePoly leser Google-polylinjer som [lengde, bredde]',()=>{
   const pts=C.decodePoly('_p~iF~ps|U_ulLnnqC_mqNvxq`@');
   assert.deepEqual(pts,[[-120.2,38.5],[-120.95,40.7],[-126.453,43.252]]);
@@ -91,6 +102,15 @@ test('estimate følger tidene langs linjegeometrien',()=>{
 test('nearestCallIdx finner holdeplassen på koordinater og faller tilbake på navn',()=>{
   assert.equal(C.nearestCallIdx(calls,{latitude:59.9101,longitude:10.8099},''),1);
   assert.equal(C.nearestCallIdx(calls,null,'C'),2);
+});
+
+test('nearestCallIdx: ringlinjer som passerer samme stasjon to ganger, velger passeringen nærmest tiden',()=>{
+  const B={latitude:59.91,longitude:10.81,name:'B'};
+  const ring=[...calls,{aimedArrivalTime:iso(T0+15*MIN),aimedDepartureTime:iso(T0+16*MIN),quay:{...B}}];
+  assert.equal(C.nearestCallIdx(ring,B,'',T0+16*MIN),3,'andre passering');
+  assert.equal(C.nearestCallIdx(ring,B,'',T0+6*MIN),1,'første passering');
+  assert.equal(C.nearestCallIdx(ring,B,''),1,'uten tid: nærmeste, som før');
+  assert.equal(C.nearestCallIdx(ring,B,'',T0+15*MIN,true),3,'ankomsttid der du går av');
 });
 
 test('layoutTimeline: rader per linje og retning, 30 eller 60 minutter, sammenslåtte prikker',()=>{

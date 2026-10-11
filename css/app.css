@@ -184,7 +184,7 @@ body.sheet-tall .map-ctrl{opacity:0;pointer-events:none}
 
 /* Kjøretøy på valgt reise: linjemerke med retningspil. Stiplet ring = beregnet fra sanntid, hel = GPS. */
 .tveh{position:relative;display:grid;place-items:center;min-width:42px;height:32px;padding:0 9px;border-radius:16px;background:var(--c);
-  color:#fff;font:800 15px var(--font);border:2.5px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.35);cursor:pointer;z-index:2}
+  color:var(--o,#fff);font:800 15px var(--font);border:2.5px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.35);cursor:pointer;z-index:2}
 .tveh span{position:relative;z-index:1}
 .tveh::after{content:'';position:absolute;inset:-7px;border-radius:18px;border:2px solid var(--c);opacity:.55;animation:vehPulse 2s var(--ease-out) infinite}
 .tveh.est::after{border-style:dashed;animation:none;opacity:.7}
@@ -308,8 +308,12 @@ button.titles{text-align:left}
 
 /* ---------- Linjemerke ---------- */
 .badge{display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:23px;padding:0 6px;border-radius:6px;
-  color:#fff;font-weight:750;font-size:13px;letter-spacing:-.01em;line-height:1;background:var(--c,#5D676C);white-space:nowrap}
+  color:var(--o,#fff);font-weight:750;font-size:13px;letter-spacing:-.01em;line-height:1;background:var(--c,#5D676C);white-space:nowrap}
 .badge-l{min-width:42px;height:28px;font-size:15px;border-radius:7px}
+/* Store skilt kan ha piktogrammet for transportmiddelet foran nummeret. */
+.badge.with-icon{gap:4px;padding:0 8px 0 6px}
+.badge.with-icon .g{width:15px;height:15px;stroke-width:2.1}
+.seg.ride .g{width:14px;height:14px;stroke-width:2.1;margin-right:3px}
 
 /* ---------- Hjem: holdeplasskort ---------- */
 .stop-card{display:block;width:100%;text-align:left;padding:12px 16px 10px;border-top:1px solid var(--line)}
@@ -330,6 +334,8 @@ button.titles{text-align:left}
 .filter{flex:none;display:flex;align-items:center;gap:7px;min-height:34px;padding:0 12px;border-radius:99px;border:1px solid var(--line-strong);
   font-size:13.5px;font-weight:600;color:var(--ink-2);transition:background-color var(--t-fast),color var(--t-fast),border-color var(--t-fast)}
 .filter i{width:8px;height:8px;border-radius:2px;background:var(--c);flex:none}
+.filter .g{width:17px;height:17px;color:var(--c)}
+.filter[aria-pressed="true"] .g{color:currentColor}
 .filter[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper)}
 .star{width:44px;height:44px;display:grid;place-items:center;color:var(--ink-3);border-radius:50%;flex:none}
 .star .g{width:23px;height:23px;transition:transform var(--t-med) var(--ease-spring),fill var(--t-fast)}
@@ -375,7 +381,10 @@ button.dep:active{background:var(--surface-2)}
 .lt-dots i{position:absolute;top:11px;width:8px;height:8px;margin-left:-4px;border-radius:50%;background:var(--surface);border:2px solid var(--line-strong);transition:border-color .3s}
 .lt-dots i.on{border-color:var(--c)}
 .lt-dots i.end{top:7px;width:16px;height:16px;margin-left:-8px;background:var(--signal);border:3px solid var(--ink)}
-.lt-veh{position:absolute;top:3px;transform:translateX(-50%);min-width:30px;height:22px;padding:0 6px;border-radius:11px;background:var(--c);color:#fff;
+/* Mange stopp (en lang tur): korte streker i stedet for ringer, så sporet ikke blir en perlerad. */
+.lt-dots.many i:not(.end){top:11px;width:2px;height:8px;margin-left:-1px;border:0;border-radius:1px;background:var(--line-strong)}
+.lt-dots.many i.on:not(.end){background:var(--c)}
+.lt-veh{position:absolute;top:3px;transform:translateX(-50%);min-width:30px;height:22px;padding:0 6px;border-radius:11px;background:var(--c);color:var(--o,#fff);
   display:grid;place-items:center;font-size:11.5px;font-weight:800;border:2px solid var(--surface);box-shadow:0 2px 6px rgba(0,0,0,.25);
   transition:left 1s linear;z-index:1}
 .lt-veh.far{box-shadow:none}
@@ -414,7 +423,7 @@ button.dep:active{background:var(--surface-2)}
 .jv-between{min-height:30px;cursor:default}
 .jv-between .jv-rail i{display:none}
 .jv-note{font-size:12px;color:var(--ink-3);font-weight:600}
-.jv-veh{position:absolute;z-index:2;display:grid;place-items:center;min-width:30px;height:22px;padding:0 6px;border-radius:11px;background:var(--c);color:#fff;
+.jv-veh{position:absolute;z-index:2;display:grid;place-items:center;min-width:30px;height:22px;padding:0 6px;border-radius:11px;background:var(--c);color:var(--o,#fff);
   font:800 11.5px var(--font);font-style:normal;border:2px solid var(--surface);box-shadow:0 2px 6px rgba(0,0,0,.25)}
 .jv-veh.moving{animation:jvBob 1.6s ease-in-out infinite}
 @keyframes jvBob{50%{transform:translateY(3px)}}
@@ -472,7 +481,7 @@ button.dep:active{background:var(--surface-2)}
 .stripe{display:flex;gap:3px;height:24px;margin:9px 0 0}
 .seg{position:relative;display:flex;align-items:center;justify-content:center;gap:1px;min-width:0;border-radius:6px;overflow:hidden;
   transform-origin:left;animation:grow .6s var(--ease-out) both}
-.seg.ride{min-width:38px;background:var(--c);color:#fff}
+.seg.ride{min-width:38px;background:var(--c);color:var(--o,#fff)}
 .seg.ride b{font-size:12.5px;font-weight:800;letter-spacing:-.01em}
 .seg.walk{min-width:34px;color:var(--ink-3);background:var(--surface-2)}
 .seg.walk .g{width:14px;height:14px}
@@ -481,6 +490,8 @@ button.dep:active{background:var(--surface-2)}
 .seg.has-alert::after{content:'';position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:var(--signal);box-shadow:0 0 0 1.5px var(--c)}
 /* Tilkjøring: kjøretøyet glir mot holdeplassen du skal gå på. */
 .ap{display:flex;align-items:center;gap:10px;margin-top:9px;min-height:18px}
+.ap .ap-ico{width:15px;height:15px;color:var(--ink-3);margin-right:-4px}
+.ap-ico+.ap-name{max-width:none;flex:1}
 .ap-name{flex:none;max-width:48%;font-size:12px;font-weight:600;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ap-name time{margin-left:4px;font-weight:700;color:var(--ink-2);font-variant-numeric:tabular-nums}
 .ap-track{position:relative;flex:1;height:18px;margin:0 6px 0 4px}
@@ -489,7 +500,7 @@ button.dep:active{background:var(--surface-2)}
 .ap-track>i{position:absolute;top:6px;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:var(--surface);border:1.5px solid var(--line-strong)}
 .ap-track>i.on{border-color:var(--c)}
 .ap-track .ap-end{left:100%;top:4px;width:10px;height:10px;margin-left:-5px;background:var(--signal);border:2px solid var(--ink)}
-.ap-veh{position:absolute;top:-1px;transform:translateX(-50%);min-width:26px;height:20px;padding:0 5px;border-radius:9px;background:var(--c);color:#fff;
+.ap-veh{position:absolute;top:-1px;transform:translateX(-50%);min-width:26px;height:20px;padding:0 5px;border-radius:9px;background:var(--c);color:var(--o,#fff);
   display:grid;place-items:center;font-size:11px;font-weight:800;border:1.5px solid var(--surface);box-shadow:0 1px 4px rgba(0,0,0,.25);transition:left 1s linear}
 .ap-veh.far{box-shadow:none}
 .ap-veh.far::before{content:'';position:absolute;right:100%;top:7px;width:10px;height:2px;margin-right:2px;background:repeating-linear-gradient(90deg,var(--c) 0 2px,transparent 2px 4px)}
@@ -539,13 +550,14 @@ button.dep:active{background:var(--surface-2)}
 .tl-late{position:absolute;top:var(--y);height:4px;margin-top:-2px;border-radius:2px;background:var(--late);opacity:.55;transition:left 1s var(--ease-out),width 1s var(--ease-out)}
 .tl-dot{position:absolute;top:var(--y);transform:translate(-50%,-50%);min-width:26px;height:26px;padding:0 4px;border-radius:13px;
   display:grid;place-items:center;grid-auto-flow:column;gap:1px;
-  background:var(--c);color:#fff;font-size:11.5px;font-weight:800;font-variant-numeric:tabular-nums;border:2px solid var(--surface-2);
+  background:var(--c);color:var(--o,#fff);font-size:11.5px;font-weight:800;font-variant-numeric:tabular-nums;border:2px solid var(--surface-2);
   transition:left 1s var(--ease-out),opacity .3s,transform var(--t-fast)}
 button.tl-dot:active{transform:translate(-50%,-50%) scale(.92)}
 .tl-dot sup{font-size:11px;font-weight:800;opacity:.9;line-height:1;align-self:start;margin-top:3px}
 .tl-dot.sched{background:var(--surface);color:var(--ink);border:2px solid var(--c)}
-.tl-dot.miss{background:var(--surface);color:var(--ink-3);border:2px dashed color-mix(in srgb,var(--c) 70%,var(--ink-3))}
-.tl-compact .tl-dot.miss{border-color:color-mix(in srgb,var(--c) 70%,var(--ink-3))}
+/* Avganger du ikke rekker: hule og dempet, med tynn hel kant. Rolig, men tydelig «ikke denne». */
+.tl-dot.miss{background:var(--surface);color:var(--ink-3);border:1.5px solid color-mix(in srgb,var(--c) 45%,var(--line-strong))}
+.tl-compact .tl-dot.miss{border-color:color-mix(in srgb,var(--c) 45%,var(--line-strong))}
 .tl-legend{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11px;font-weight:600;color:var(--ink-3)}
 .tl-legend .g{width:13px;height:13px}
 .tl-more{margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3)}
@@ -557,7 +569,9 @@ button.tl-dot:active{transform:translate(-50%,-50%) scale(.92)}
 .tl-compact .tl-dot{min-width:22px;height:22px;font-size:11px;border-color:var(--surface)}
 .tl-compact .tl-dot.sched{border-color:var(--c)}
 .tl-compact .tl-dest{font-size:11.5px}
-.tl-compact>.tl-more{position:absolute;right:0;bottom:-2px}
+/* «+N» legger seg over enden av linjen i stedet for å krysse den. */
+.tl-compact>.tl-more{position:absolute;right:0;bottom:3px;padding-left:6px;line-height:14px;background:var(--surface)}
+.stop-card:active .tl-compact>.tl-more{background:var(--surface-2)}
 .dep .dest small{display:flex;align-items:center;gap:8px}
 .dep .dest small .reach{font-size:12px}
 
@@ -609,7 +623,7 @@ button.tl-dot:active{transform:translate(-50%,-50%) scale(.92)}
 .leg.done .rail::before{background:var(--line-strong)}
 .leg.done .rail .node{border-color:var(--line-strong)}
 .rveh{position:absolute;z-index:2;left:50%;top:calc(18px + (100% - 30px) * var(--k,0));transform:translate(-50%,-2px);min-width:28px;height:20px;padding:0 5px;
-  border-radius:10px;background:var(--c);color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center;
+  border-radius:10px;background:var(--c);color:var(--o,#fff);font-size:11px;font-weight:800;display:grid;place-items:center;
   border:2px solid var(--surface);box-shadow:0 2px 6px rgba(0,0,0,.25);transition:top 1s linear}
 .rveh::after{content:'';position:absolute;inset:-5px;border-radius:13px;border:2px solid var(--c);opacity:0;animation:vehPulse 2s var(--ease-out) infinite}
 .leg .meta{color:var(--ink-3);font-size:12.5px;margin-top:3px}
@@ -635,9 +649,13 @@ button.tl-dot:active{transform:translate(-50%,-50%) scale(.92)}
 .alert h4{font-size:15px;font-weight:650;line-height:1.35;letter-spacing:-.01em}
 .alert p{font-size:13.5px;color:var(--ink-2);line-height:1.45;margin-top:4px}
 .alert time{display:block;margin-top:8px;font-size:12px;color:var(--ink-3);font-weight:600}
+/* Lange forklaringer vises med to linjer; «Vis mer» folder ut. */
+.alert p.clamp:not(.open){display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.alert .more{display:block;min-height:32px;margin-top:2px;font-size:12.5px;font-weight:700;color:var(--ink-2)}
 
 .alert-lines{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px}
-.alert-lines .badge{min-width:26px;height:20px;font-size:11.5px;--c:var(--ink-2);color:var(--surface)}
+.alert-lines .badge{min-width:26px;height:20px;font-size:11.5px}
+.alert-lines .badge.neutral{--c:var(--ink-2);color:var(--surface)}
 .alert-lines .badge.dim{--c:var(--surface-3);color:var(--ink-2)}
 .quiet-link{display:flex;align-items:center;gap:10px;width:calc(100% - 32px);margin:18px 16px 4px;padding:12px 14px;border-radius:var(--r-m);
   background:var(--surface-2);color:var(--ink-2);font-size:14px;font-weight:600;text-align:left}

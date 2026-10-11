@@ -103,8 +103,11 @@ function backHero(leaving,to){
     return{from:head,to:()=>$(`.stop-card[data-stop="${CSS.escape(leaving.params.id)}"] .top b`)};
   if(leaving.name==='trip'&&to.name==='results')
     return{from:head,to:()=>$(`.trip[data-p="${leaving.params.i}"] .t`)};
-  if(leaving.name==='journey'&&to.name==='stop'){const sj=CSS.escape(leaving.params.sj||'');
-    return{from:$('#sheetHead .jv-title .badge'),to:()=>$(`#sheetPage .dep[data-sj="${sj}"] .badge`)||$(`#sheetPage .tl-dot[data-sj="${sj}"]`)};}
+  if(leaving.name==='journey'&&to.name==='stop'){
+    // Samme avgang som du trykket på (tur og planlagt tid), ellers første avgang med samme tur.
+    const sj=CSS.escape(leaving.params.sj||''),at=Number.isFinite(+leaving.params.at)?`[data-at="${+leaving.params.at}"]`:'';
+    const pick=a=>$(`#sheetPage .dep[data-sj="${sj}"]${a} .badge`)||$(`#sheetPage .tl-dot[data-sj="${sj}"]${a}`);
+    return{from:$('#sheetHead .jv-title .badge'),to:()=>(at&&pick(at))||pick('')};}
   return null;
 }
 const router={

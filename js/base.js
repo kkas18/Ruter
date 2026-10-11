@@ -21,14 +21,19 @@ const API={
   sx:'https://api.entur.io/realtime/v1/rest/sx',
   client:'kkas18-reis' // ET-Client-Name: «eier-app», så Entur vet hvem som ringer og kan si fra ved endringer
 };
-// Kjente farger for Oslo-trafikken, justert for hvit tekst (WCAG AA).
+// Fargene fra Oslo-trafikken: rød buss, blå trikk, oransje T-bane, lilla tog. Teksten på fargen (o)
+// er hvit, bortsett fra på T-banens lyse oransje, der mørk tekst gir best kontrast (WCAG AA).
+// i: piktogrammet for transportmiddelet (symbolene i-m-* i index.html).
 const MODES={
-  bus:{n:'Buss',c:'#C3302A'}, tram:{n:'Trikk',c:'#1F5CB8'}, metro:{n:'T-bane',c:'#B5470B'},
-  rail:{n:'Tog',c:'#5845A6'}, water:{n:'Båt',c:'#08737D'}, coach:{n:'Ekspress',c:'#8E2F57'},
-  funicular:{n:'Bane',c:'#5D676C'}, cableway:{n:'Bane',c:'#5D676C'}, air:{n:'Fly',c:'#5D676C'}
+  bus:{n:'Buss',c:'#C3302A',i:'bus'}, tram:{n:'Trikk',c:'#1F5CB8',i:'tram'}, metro:{n:'T-bane',c:'#EC700C',o:'#14191C',i:'metro'},
+  rail:{n:'Tog',c:'#5845A6',i:'rail'}, water:{n:'Båt',c:'#08737D',i:'water'}, coach:{n:'Ekspress',c:'#8E2F57',i:'bus'},
+  funicular:{n:'Bane',c:'#5D676C',i:'rail'}, cableway:{n:'Bane',c:'#5D676C',i:'rail'}, air:{n:'Fly',c:'#5D676C',i:'bus'}
 };
 // Navnet oversettes når det vises; nøkkelen (bus, tram …) er den samme på alle språk.
-const modeOf=m=>{const x=MODES[m]||{n:'Kollektiv',c:'#5D676C'};return{n:tr(x.n),c:x.c};};
+const modeOf=m=>{const x=MODES[m]||{n:'Kollektiv',c:'#5D676C',i:'bus'};return{n:tr(x.n),c:x.c,o:x.o||'#fff',i:x.i};};
+// Fargen og tekstfargen som CSS-variabler, for style-attributter: --c (flaten) og --o (teksten).
+const modeStyle=m=>{const x=modeOf(m);return`--c:${x.c};--o:${x.o}`;};
+const modeIcon=(m,cls='')=>ico('m-'+modeOf(m).i,cls);
 const OSLO=[59.9139,10.7522];
 const REFRESH_MS=30000;
 

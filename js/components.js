@@ -36,9 +36,10 @@ function alertFor(code,{all=false}={}){
   const hits=state.alerts.filter(a=>(a.lines||[]).includes(String(code))&&(all||a.sev!=='info'));
   return hits.sort((a,b)=>SEV_RANK[a.sev]-SEV_RANK[b.sev])[0];
 }
-function lineBadge(code,mode,cls='',withAlert=true){
+// icon: piktogrammet for transportmiddelet foran nummeret (store skilt der det er plass).
+function lineBadge(code,mode,cls='',withAlert=true,icon=false){
   const md=modeOf(mode),a=withAlert&&alertFor(code);
-  return`<span class="badge ${cls}${a?` has-alert ${a.sev}`:''}" style="--c:${md.c}" title="${md.n} ${esc(code)}${a?` – ${esc(a.summary)}`:''}">${esc(code)}</span>`;
+  return`<span class="badge ${cls}${icon?' with-icon':''}${a?` has-alert ${a.sev}`:''}" style="--c:${md.c};--o:${md.o}" title="${md.n} ${esc(code)}${a?` – ${esc(a.summary)}`:''}">${icon?modeIcon(mode):''}${esc(code)}</span>`;
 }
 // Belegg fra operatøren (Ruter deler det foreløpig ikke; da vises ingenting).
 const OCC={empty:1,manySeatsAvailable:1,fewSeatsAvailable:2,standingRoomOnly:3,crushedStandingRoomOnly:3,full:3,notAcceptingPassengers:3};
@@ -72,7 +73,7 @@ function depRow(s,r){
   const reach=s.stale?null:reachStatus(dist,r.exp);
   const tags=[r.quay?quayChip(r.mode,r.quay):'',occHtml(r.occ),
     reach?`<span class="reach ${reach.cls}">${esc(reach.label)}</span>`:''].filter(Boolean).join('');
-  return`<button class="dep press" type="button" data-sj="${esc(r.sj||'')}" data-stop="${esc(s.id)}">${lineBadge(r.pub,r.mode,'badge-l',false)}
+  return`<button class="dep press" type="button" data-sj="${esc(r.sj||'')}" data-at="${r.aimed}" data-stop="${esc(s.id)}">${lineBadge(r.pub,r.mode,'badge-l',false)}
     <span class="dest"><b>${esc(r.dest)}</b>${tags?`<small>${tags}</small>`:''}</span>
     ${whenHtml(`${s.id}|${r.pub}|${r.dest}|${r.aimed}`,r)}</button>`;
 }
@@ -93,12 +94,12 @@ function stopTimeline(s,rows,{compact=false,maxLanes=compact?2:6,width=0}={}){
     // Samme linje i begge retninger: skiltet står bare én gang.
     const same=li>0&&list[li-1].pub===L.pub&&list[li-1].mode===L.mode,dots=L.dots;
     return`<div class="tl-lane${same?' same':''}" data-k="${esc(L.key)}"><span class="tl-lab">${same?'':lineBadge(L.pub,L.mode,'',false)}</span>
-      <div class="tl-plot" style="--c:${modeOf(L.mode).c}"><span class="tl-dest">${esc(L.dest)}</span>
+      <div class="tl-plot" style="${modeStyle(L.mode)}"><span class="tl-dest">${esc(L.dest)}</span>
       ${walk?`<span class="tl-walk" style="width:${wp}%"></span>`:''}
       ${dots.map(({r,x:xi,more})=>{const m=Math.max(0,minUntil(r.exp)),late=r.exp-r.aimed>60000;
         const lab=`${tr('{mode} {line} mot {dest}',{mode:modeOf(r.mode).n,line:r.pub,dest:r.dest})}, ${m<=0?tr('nå'):tr('om {n} min',{n:m})}${late?tr(', forsinket'):''}${r.rt?'':tr(', rutetid')}${more.length?tr(', og {n} til rett etter',{n:more.length}):''}`;
-        return`${late?`<span class="tl-late" data-sj="${esc(r.sj||'')}" style="left:${x(r.aimed)}%;width:${xi-x(r.aimed)}%"></span>`:''}<${tag} class="tl-dot${r.rt?'':' sched'}${m<walk?' miss':''}"${tag==='button'?' type="button"':' role="img"'}
-          style="left:${xi}%" data-sj="${esc(r.sj||'')}" data-exp="${r.exp}" aria-label="${esc(lab)}">${m<=0?tr('nå'):m}${more.length?`<sup>+${more.length}</sup>`:''}</${tag}>`;}).join('')}</div></div>`;
+        return`${late?`<span class="tl-late" data-sj="${esc(r.sj||'')}" data-at="${r.aimed}" style="left:${x(r.aimed)}%;width:${xi-x(r.aimed)}%"></span>`:''}<${tag} class="tl-dot${r.rt?'':' sched'}${m<walk?' miss':''}"${tag==='button'?' type="button"':' role="img"'}
+          style="left:${xi}%" data-sj="${esc(r.sj||'')}" data-at="${r.aimed}" data-exp="${r.exp}" aria-label="${esc(lab)}">${m<=0?tr('nå'):m}${more.length?`<sup>+${more.length}</sup>`:''}</${tag}>`;}).join('')}</div></div>`;
   };
   const html=`<div class="tl${compact?' tl-compact':''}" role="group" aria-label="${tr('Avganger de neste {n} minuttene',{n:W})}">
     ${compact?'':`<div class="tl-axis"><span></span><div>${ticks.map(t=>`<em style="left:${t/W*100}%">${t?t:tr('nå')}</em>`).join('')}</div></div>`}
@@ -154,10 +155,11 @@ function morphTl(o,n){
     $$('.tl-dot',L).forEach((d,k)=>{const m=nd[k],was=+d.dataset.exp,now=+m.dataset.exp;
       copyEl(d,m);d.dataset.exp=m.dataset.exp;
       if(was&&now-was>=60000)flash(d,'flash-late');else if(was&&was-now>=60000)flash(d,'flash-early');});
-    // Forsinkelseshaler: de som finnes flyttes, nye vokser fram fra planlagt tid.
-    const plot=$('.tl-plot',L),old=new Map($$('.tl-late',L).map(t=>[t.dataset.sj,t]));
-    $$('.tl-late',N).forEach(m=>{const t=old.get(m.dataset.sj);
-      if(t){t.style.cssText=m.style.cssText;old.delete(m.dataset.sj);return;}
+    // Forsinkelseshaler: de som finnes flyttes, nye vokser fram fra planlagt tid. Nøkkelen er tur og
+    // planlagt tid, fordi en ringlinje kan ha to avganger med samme tur.
+    const lk=t=>`${t.dataset.sj}|${t.dataset.at}`,plot=$('.tl-plot',L),old=new Map($$('.tl-late',L).map(t=>[lk(t),t]));
+    $$('.tl-late',N).forEach(m=>{const t=old.get(lk(m));
+      if(t){t.style.cssText=m.style.cssText;old.delete(lk(m));return;}
       const c=m.cloneNode(true),w=c.style.width;c.style.width='0';plot.insertBefore(c,$('.tl-dot',plot));
       requestAnimationFrame(()=>requestAnimationFrame(()=>{c.style.width=w;}));});
     old.forEach(t=>t.remove());
@@ -166,7 +168,7 @@ function morphTl(o,n){
 // Kompakt rad for avganger lenger fram (under tidslinjen): klokkeslett først, minutter dempet.
 function depRowCompact(s,r){
   const m=minUntil(r.exp),late=fmtT(r.exp)!==fmtT(r.aimed)&&r.exp>r.aimed;
-  return`<button class="dep compact press" type="button" data-sj="${esc(r.sj||'')}" data-stop="${esc(s.id)}">${lineBadge(r.pub,r.mode,'',false)}
+  return`<button class="dep compact press" type="button" data-sj="${esc(r.sj||'')}" data-at="${r.aimed}" data-stop="${esc(s.id)}">${lineBadge(r.pub,r.mode,'',false)}
     <span class="dest"><b>${esc(r.dest)}</b></span>
     <span class="ct">${r.rt?liveDot():''}${late?`<s>${fmtT(r.aimed)}</s>`:''}<b class="${late?'late':''}">${fmtT(r.exp)}</b><small>${m<60?`${m} min`:''}</small></span></button>`;
 }

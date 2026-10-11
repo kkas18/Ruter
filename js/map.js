@@ -63,7 +63,7 @@ function badgeImage(mode,line,gps){
   const g=imageCtx(W,H);
   const top=gps?8:4,bw=W-(gps?12:8);
   g.beginPath();g.roundRect(4,top,bw,H-top-4,(H-top-4)/2);g.fillStyle=color;g.fill();g.lineWidth=5;g.strokeStyle='#fff';g.stroke();
-  g.font=font;g.fillStyle='#fff';g.textAlign='center';g.textBaseline='middle';g.fillText(label,4+bw/2,top+(H-top-4)/2+1);
+  g.font=font;g.fillStyle=modeOf(mode).o;g.textAlign='center';g.textBaseline='middle';g.fillText(label,4+bw/2,top+(H-top-4)/2+1);
   if(gps){g.beginPath();g.arc(W-11,11,8,0,Math.PI*2);g.fillStyle='#2FD07A';g.fill();g.lineWidth=3.5;g.strokeStyle='#fff';g.stroke();}
   return g.getImageData(0,0,W,H);
 }
@@ -165,7 +165,7 @@ map.on('load',()=>{
       // Traff du én bestemt avgang i kortet, vis den turen; ellers holdeplassen.
       const spec=cardSpecs.get(card.properties.card),pt=map.project(card.geometry.coordinates);
       const rel=x-(pt.x-(spec?.w||0)/2),hit=spec?.hits?.find(h=>rel>=h.x0&&rel<=h.x1&&h.sj);
-      if(hit)router.go('journey',{sj:hit.sj,stop:card.properties.id});
+      if(hit)router.go('journey',{sj:hit.sj,stop:card.properties.id,...(hit.at?{at:hit.at}:{})});
       else router.go('stop',{id:card.properties.id,snap:'peek'});
       return;}
     const hits=map.queryRenderedFeatures([[x-18,y-18],[x+18,y+18]],{layers:['stops','stop-icons','stops-label-major','stops-label']});
@@ -192,7 +192,7 @@ map.on('load',()=>{
 
   map.addLayer({id:'stop-cards',type:'symbol',source:'stops',minzoom:CARD_ZOOM,filter:['all',['has','card'],['!=',['get','id'],'']],layout:{
     'icon-image':['get','card'],'icon-anchor':'bottom','icon-offset':[0,-14],'icon-padding':4,'symbol-sort-key':['get','rank'],
-    'icon-allow-overlap':false},paint:{'icon-opacity':['interpolate',['linear'],['zoom'],CARD_ZOOM,0,CARD_ZOOM+.3,1]}});
+    'icon-allow-overlap':false},paint:{'icon-opacity':['interpolate',['linear'],['zoom'],CARD_ZOOM,0,CARD_ZOOM+.12,1]}});
   map.moveLayer('stop-sel'); // valgt holdeplass øverst, også over kjøretøy
   setBasemap(settings.basemap);paintTheme();renderStopsLayer();renderAcc();map.setPadding(mapPadding());
   // Kildehenvisningen starter sammenslått som en ⓘ-knapp.
@@ -309,7 +309,7 @@ function cardBounds(){
 function cardKey(s,vb){
   if(!vb||s.lon<vb.w||s.lon>vb.e||s.lat<vb.s||s.lat>vb.n)return null;
   const entry=state.deps.get(s.id);if(!entry)return null;
-  const items=upcoming(s.id).slice(0,3).map(r=>{const m=minUntil(r.exp);return{pub:r.pub,mode:r.mode,t:m<=0?tr('nå'):m<60?String(m):fmtT(r.exp),rt:r.rt,now:m<=0,sj:r.sj};});
+  const items=upcoming(s.id).slice(0,3).map(r=>{const m=minUntil(r.exp);return{pub:r.pub,mode:r.mode,t:m<=0?tr('nå'):m<60?String(m):fmtT(r.exp),rt:r.rt,now:m<=0,sj:r.sj,at:r.aimed};});
   if(!items.length)return null; // uten avganger: bare prikk og navn
   const theme=isSat()?'sat':resolveTheme();
   const key=`sc|${theme}|${I18N.lang}|${s.id}|${items.map(i=>i.pub+':'+i.t+(i.rt?'*':'')).join(',')}`;
@@ -348,7 +348,7 @@ function cardImage(spec){
   spec.w=cv.width/X;spec.hits=[]; // for trykk: hvor hver avgang ligger i bildet (CSS-px fra venstre kant)
   chips.forEach(c=>{const x0=x;
     g.beginPath();g.roundRect(x,cy-BH/2,c.bw,BH,5*X);g.fillStyle=modeOf(c.mode).c;g.fill();
-    g.font=font(800,11.5);g.fillStyle='#fff';g.textAlign='center';g.fillText(c.pub,x+c.bw/2,cy+.5*X);g.textAlign='left';
+    g.font=font(800,11.5);g.fillStyle=modeOf(c.mode).o;g.textAlign='center';g.fillText(c.pub,x+c.bw/2,cy+.5*X);g.textAlign='left';
     x+=c.bw+5*X;
     // Sanntid: grønn prikk foran tiden, som i resten av appen.
     if(c.rt){g.beginPath();g.arc(x+3*X,cy,3*X,0,Math.PI*2);g.fillStyle=dark?'#4FC48C':'#1C7F52';g.fill();x+=9*X;}
@@ -358,7 +358,7 @@ function cardImage(spec){
     else{g.font=font(750,12.5);g.fillStyle=col.text;g.fillText(c.t,x,cy+.5*X);
       if(c.unit){g.font=font(600,9.5);g.fillStyle=col.sub;g.fillText('min',x+tw+2*X,cy+1.5*X);}}
     x+=tw+c.uw+GAP;
-    spec.hits.push({x0:(x0-GAP/2)/X,x1:(x-GAP/2)/X,sj:c.sj,stop:spec.id});
+    spec.hits.push({x0:(x0-GAP/2)/X,x1:(x-GAP/2)/X,sj:c.sj,stop:spec.id,at:c.at});
   });
   return g.getImageData(0,0,cv.width,cv.height);
 }

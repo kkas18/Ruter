@@ -45,16 +45,18 @@ function reachStatus(distance,departure,now=Date.now()){
 
 /* ---------- Avganger fra Entur ---------- */
 function parseCalls(calls){
-  const now=Date.now()-60000,seen=new Set(),rows=[];
+  const now=Date.now()-60000,seen=new Map(),rows=[];
   (calls||[]).forEach(c=>{
     if(c.forBoarding===false)return;
     const exp=new Date(c.expectedDepartureTime).getTime();
     if(!Number.isFinite(exp)||exp<now)return;
     const line=c.serviceJourney?.journeyPattern?.line||{};
-    const dest=c.destinationDisplay?.frontText||'—';
-    const key=c.serviceJourney?.id||`${line.publicCode}|${dest}|${c.aimedDepartureTime}`; // samme tur fra flere plattformer
-    if(seen.has(key))return;seen.add(key);
-    rows.push({dest,pub:line.publicCode||'?',mode:line.transportMode||'bus',exp,aimed:new Date(c.aimedDepartureTime).getTime(),rt:!!c.realtime,quay:c.quay?.publicCode,sj:c.serviceJourney?.id||'',occ:c.occupancyStatus,date:c.date||null});
+    const dest=c.destinationDisplay?.frontText||'—',aimed=new Date(c.aimedDepartureTime).getTime(),t=Number.isFinite(aimed)?aimed:exp;
+    // Samme tur fra to plattformer, minutter imellom, er én avgang. Ringlinjer (T-bane 4 og 5) passerer
+    // samme stasjon to ganger på én tur, en knapp halvtime imellom: det er to avganger, og begge vises.
+    const key=c.serviceJourney?.id||`${line.publicCode}|${dest}|${c.aimedDepartureTime}`,prev=seen.get(key)||[];
+    if(prev.some(p=>Math.abs(p-t)<10*60000))return;seen.set(key,[...prev,t]);
+    rows.push({dest,pub:line.publicCode||'?',mode:line.transportMode||'bus',exp,aimed,rt:!!c.realtime,quay:c.quay?.publicCode,sj:c.serviceJourney?.id||'',occ:c.occupancyStatus,date:c.date||null});
   });
   return rows.sort((a,b)=>a.exp-b.exp);
 }
@@ -123,10 +125,20 @@ function callPos(c,now=Date.now()){
   }
   return{at:c.length-1,f:0,state:'done'};
 }
-function nearestCallIdx(calls,q,name){
-  if(q&&+q.latitude){let best=-1,bd=Infinity;calls.forEach((c,i)=>{if(!c.quay)return;
-    const d=(c.quay.latitude-q.latitude)**2+(c.quay.longitude-q.longitude)**2;if(d<bd){bd=d;best=i;}});if(best>=0)return best;}
-  return calls.findIndex(c=>c.quay?.name===name);
+// Holdeplassen i turen: nærmest på koordinater, ellers på navn. Ringlinjer (T-bane 4 og 5) passerer
+// samme stasjon to ganger på én tur; da velges passeringen med tid nærmest t, hvis den er kjent.
+// arr: sammenlign med ankomsttid (der du går av) i stedet for avgangstid.
+function nearestCallIdx(calls,q,name,t=NaN,arr=false){
+  let idx=[];
+  if(q&&+q.latitude){
+    const d=calls.map(c=>c.quay?geoDist([+q.latitude,+q.longitude],[c.quay.latitude,c.quay.longitude]):Infinity),min=Math.min(...d);
+    if(min<Infinity)idx=Number.isFinite(t)?d.map((x,i)=>x<=min+60?i:-1).filter(i=>i>=0):[d.indexOf(min)];
+  }
+  if(!idx.length)idx=calls.map((c,i)=>c.quay?.name===name?i:-1).filter(i=>i>=0);
+  if(!idx.length)return -1;
+  if(idx.length===1||!Number.isFinite(t))return idx[0];
+  const at=i=>arr?arrT(calls[i]):depT(calls[i]);
+  return idx.reduce((a,b)=>Math.abs(at(b)-t)<Math.abs(at(a)-t)?b:a);
 }
 
 /* ---------- Tidslinje for avganger ---------- */
