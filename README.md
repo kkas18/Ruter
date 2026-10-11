@@ -27,7 +27,7 @@ Skriptene lastes i denne rekkefølgen fra `index.html` og deler globalt navnerom
 | `js/mapstyle.js` | Kartstilen (lyst, mørkt og satellitt) |
 | `js/i18n.js` | Språk: norsk er kildeteksten, `tr()` og `tn()` slår opp engelsk. Testes i `tests/` |
 | `js/core.js` | Ren logikk uten DOM: tid, avstand og gangtid, posisjon langs linjen, tidslinjens oppsett, vekting av trafikkmeldinger. Testes i `tests/` |
-| `js/base.js` | Hjelpere, konstanter, lagring, feilhåndtering (`report`), nettstatus, tema og GraphQL |
+| `js/base.js` | Hjelpere, konstanter, lagring, feilhåndtering (`report`), bekreftelser (`notify`, Angre), nettstatus, tema og GraphQL |
 | `js/map.js` | Kartlag, holdeplassikoner og avgangskort på kartet |
 | `js/sheet.js` | Arket (dra-gester og høyder) og ruteren |
 | `js/components.js` | Ring, linjeskilt, avgangsrader og tidslinje |

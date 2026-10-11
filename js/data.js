@@ -49,9 +49,9 @@ const homeSubText=()=>{
   return`${state.pos?`${tr('Rundt deg')}${state.acc>50?` · ±${state.acc} m`:''}`:state.nearbyAt?tr('Rundt kartsenteret'):tr('Henter posisjon…')}${state.updated?tr(' · oppdatert {t}',{t:fmtT(state.updated)}):''}`;
 };
 function requestGeoOnce(){
-  if(!('geolocation' in navigator)){toast(tr('Enheten støtter ikke posisjon.'));return;}
+  if(!('geolocation' in navigator)){notify({title:tr('Enheten støtter ikke posisjon'),tone:'warn'});return;}
   navigator.geolocation.getCurrentPosition(p=>{handlePos(p);startGeo();},
-    ()=>toast(tr('Fikk ikke tilgang til posisjon. Sjekk tillatelsene.')),{enableHighAccuracy:true,timeout:15000});
+    ()=>notify({title:tr('Fikk ikke tilgang til posisjon'),sub:tr('Sjekk tillatelsene i nettleseren.'),tone:'warn'}),{enableHighAccuracy:true,timeout:15000});
 }
 function startGeo(){
   if(!('geolocation' in navigator)){geoFallback();return;}

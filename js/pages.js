@@ -13,7 +13,7 @@ pages.home={
   initial:'half',peek:196,
   head(){
     return`<div class="titles"><div class="head-title">${tr('Avganger')}</div><div class="head-sub" id="homeSub">${homeSubText()}</div></div>
-      <button class="icon-btn press" id="homeRefresh" type="button" aria-label="${tr('Oppdater avganger')}">${ico('refresh')}</button>`;
+      <button class="icon-btn press" id="homeRefresh" type="button" aria-label="${tr('Oppdater avganger')}">${morphIco('refresh','check')}</button>`;
   },
   body(){
     // Bare meldinger som angår deg får plass øverst; resten ligger rolig nederst.
@@ -31,6 +31,7 @@ pages.home={
   },
   bind(){
     $('#homeRefresh').onclick=()=>{$('#homeRefresh').classList.add('spin');refreshHome().finally(()=>$('#homeRefresh')?.classList.remove('spin'));};
+    showLanded($('#sheetPage'));
     $('#alertsNotice')?.addEventListener('click',()=>{buzz(6);router.go('alerts');});
     $('#alertsAll')?.addEventListener('click',()=>{buzz(6);router.go('alerts');});
     $('#geoAsk')?.addEventListener('click',()=>{buzz(8);requestGeoOnce();});
@@ -42,7 +43,7 @@ pages.home={
     const t=document.createElement('div');t.innerHTML=this.body();
     const page=$('#sheetPage'),oc=$$('.stop-card',page),nc=$$('.stop-card',t);
     // Snarveiene oppdateres for seg (minuttene endrer seg hvert minutt).
-    const op=$('.places',page),np=$('.places',t);if(op&&np&&op.innerHTML!==np.innerHTML){op.innerHTML=np.innerHTML;bindPlaceTiles(op);}
+    const op=$('.places',page),np=$('.places',t);if(op&&np&&op.innerHTML!==np.innerHTML){op.innerHTML=np.innerHTML;bindPlaceTiles(op);showLanded(op);}
     const ids=a=>a.map(c=>c.dataset.stop).join(','),rest=el=>[...el.children].filter(c=>!c.classList.contains('stop-card')&&!c.classList.contains('places')).map(c=>c.outerHTML).join('');
     if(ids(oc)!==ids(nc)||rest(page)!==rest(t)){const st=sheetScroll.scrollTop;router.render(null);sheetScroll.scrollTop=st;return;}
     const sub=$('#homeSub');if(sub)sub.textContent=homeSubText();
@@ -67,7 +68,7 @@ pages.search={
         <div class="route-field"><input id="toInput" type="text" placeholder="${tr('Hvor vil du?')}" autocomplete="off" enterkeyhint="search" aria-label="${tr('Til')}"
           role="combobox" aria-autocomplete="list" aria-controls="suggestList" aria-expanded="false" value="${esc(state.dest?.name||'')}"></div>
         <button class="swap press" id="swapBtn" type="button" aria-label="${tr('Bytt fra og til')}">${ico('swap')}</button></div></div>
-      <div class="when-row"><div class="seg" id="timeSeg" role="group" aria-label="${tr('Tidspunkt')}">
+      <div class="when-row"><div class="segmented" id="timeSeg" role="group" aria-label="${tr('Tidspunkt')}" style="--n:3;--i:${Math.max(0,['now','dep','arr'].indexOf(state.timeMode))}">
         ${[['now','Nå'],['dep','Avreise'],['arr','Ankomst']].map(([k,l])=>`<button type="button" data-m="${k}" aria-pressed="${state.timeMode===k}">${tr(l)}</button>`).join('')}</div>
         <input class="time-input" type="time" id="timeInput" aria-label="${tr('Klokkeslett')}" value="${esc(state.time)}" ${state.timeMode==='now'?'hidden':''}></div>`;
   },
@@ -97,8 +98,7 @@ pages.search={
       state.dest=f||(state.pos?{name:tr('Min posisjon'),lat:state.pos[0],lon:state.pos[1],me:true}:null);
       from.value=state.fromSel?.name||'';to.value=state.dest?.name||'';
       if(state.dest&&(state.fromSel||state.pos))startTripSearch(true);});
-    $$('#timeSeg button').forEach(b=>b.onclick=()=>{buzz(6);state.timeMode=b.dataset.m;
-      $$('#timeSeg button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+    $$('#timeSeg button').forEach(b=>b.onclick=()=>{buzz(6);state.timeMode=b.dataset.m;segPick($('#timeSeg'),b);
       const ti=$('#timeInput');ti.hidden=state.timeMode==='now';
       if(!ti.hidden&&!ti.value){const d=new Date(Date.now()+15*60000);ti.value=state.time=`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}});
     $('#timeInput')&&($('#timeInput').onchange=e=>{state.time=e.target.value;});
@@ -134,7 +134,12 @@ function renderSuggestions(inp){
   else if(!pick&&inp.id==='toInput')top=placeTiles({editable:true});
   const note=`<p class="note">${tr('Søk etter adresse, holdeplass eller sted. Du kan også holde fingeren på kartet for å velge et punkt.')}</p>`;
   showOptions(inp,opts,top,opts.length?'':note);
-  $('#placeRemove')?.addEventListener('click',()=>{buzz(8);const K=PLACE_KINDS[pick];delete places[pick];savePlaces();shortcuts.delete(pick);toast(tr('{kind} er fjernet',{kind:tr(K.n)}));router.back();});
+  $('#placeRemove')?.addEventListener('click',()=>{buzz(8);const K=PLACE_KINDS[pick],old=places[pick];delete places[pick];savePlaces();shortcuts.delete(pick);
+    router.back();
+    notify({title:tr('{kind} er fjernet',{kind:tr(K.n)}),sub:old.name,icon:K.icon,action:{run:()=>{
+      places[pick]=old;savePlaces();shortcuts.delete(pick);markLanded(`.place-tile[data-place="${pick}"]`);loadShortcuts(true);
+      // Bare snarveiene tegnes på nytt (i søket uten å flytte fokus, så tastaturet ikke kommer opp).
+      if(router.cur.name==='home')router.refresh();else if(router.cur.name==='search'&&$('#toInput'))renderSuggestions($('#toInput'));}}});});
 }
 // Beskjed i stedet for treff («Søker…», «Ingen treff»): leses opp, men er ikke et valg i listen.
 const optMsg=txt=>`<div class="opt opt-msg" role="status"><span class="kind">${ico('search')}</span><span>${esc(txt)}</span></div>`;
@@ -145,21 +150,23 @@ function showOptions(inp,opts,top='',after=''){
     <span><b>${esc(o.title)}</b>${o.sub?`<small>${esc(o.sub)}</small>`:''}</span></button>`).join('')}</div>`+after;
   $$('#suggestList .opt').forEach(b=>b.onclick=()=>{buzz(6);const o=opts[+b.dataset.i];choosePlace(inp,o.place);});
   $$('#fromInput,#toInput').forEach(f=>{f.setAttribute('aria-expanded',String(f===inp&&opts.length>0));f.removeAttribute('aria-activedescendant');});
-  bindPlaceTiles($('#suggest'));
+  bindPlaceTiles($('#suggest'));showLanded($('#suggest'));
 }
 function choosePlace(inp,place){
   const pick=inp.dataset.pick;
   if(pick){ // lagre fast sted og gå tilbake
     if(!place)return;
     places[pick]={name:String(place.name),lat:+place.lat,lon:+place.lon};savePlaces();shortcuts.delete(pick);
-    toast(tr('{kind} er lagret',{kind:tr(PLACE_KINDS[pick].n)}));router.back();loadShortcuts(true);return;
+    markLanded(`.place-tile[data-place="${pick}"]`);
+    notify({title:tr('{kind} er lagret',{kind:tr(PLACE_KINDS[pick].n)}),sub:places[pick].name,icon:PLACE_KINDS[pick].icon,tone:'ok'});
+    router.back();loadShortcuts(true);return;
   }
   const from=inp.id==='fromInput';
   if(from){state.fromSel=place;inp.value=place?.name||'';}
   else{state.dest=place;inp.value=place.name;}
   if(state.dest&&(state.fromSel||state.pos))startTripSearch(true);
   else if(from)$('#toInput').focus();
-  else{$('#fromInput').focus();toast(tr('Velg hvor du reiser fra.'));}
+  else{$('#fromInput').focus();notify({title:tr('Velg hvor du reiser fra'),icon:'place'});}
 }
 const KIND_ICON={Holdeplass:'stop',Knutepunkt:'stop',Adresse:'place',Gate:'street','Nylig brukt':'clock'};
 
@@ -190,7 +197,11 @@ pages.results={
   // Hvert 20. sek: tell ned ringene og flytt kjøretøyene i sporene uten å tegne kortene på nytt.
   update(){
     const cards=$$('#sheetPage .trip[data-p]');
-    if(!cards.length||cards.length!==state.trips.length||state.tripsLoading){router.render(null);return;}
+    if(!cards.length||cards.length!==state.trips.length||state.tripsLoading){
+      // Reisevalgene beholdes når de er like, så et nytt valg glir over mens forslagene lastes.
+      const o=$('#sheetPage .opts'),html=o?.outerHTML;router.render(null);
+      const n=$('#sheetPage .opts');if(o&&n&&n.outerHTML===html)n.replaceWith(o);
+      return;}
     cards.forEach(el=>{const p=state.trips[+el.dataset.p],f=firstRide(p);
       setRing(el.querySelector('.ring'),minUntil(p.expectedStartTime),fmtT(p.expectedStartTime));
       const ap=el.querySelector('.ap');if(!ap||!f)return;
@@ -261,21 +272,23 @@ function setTripPref(k,v){settings[k]=v;if(k==='walkKmh')coreCfg.walkKmh=v;saveS
 function tripOptsHtml(){
   const w=settings.walkKmh,steps=WALK_STEPS.some(([v])=>v===w)?WALK_STEPS:[...WALK_STEPS,[w,tr('Gange {x} km/t',{x:fmtDec(w)})]].sort((a,b)=>a[0]-b[0]);
   return`<div class="opts" role="group" aria-label="${tr('Reisevalg')}">
-    <button class="chip press" type="button" data-opt="fewerChanges" aria-pressed="${!!settings.fewerChanges}">${ico('fewer')}${tr('Færre bytter')}</button>
-    <button class="chip press" type="button" data-opt="stepFree" aria-pressed="${!!settings.stepFree}">${ico('access')}${tr('Trinnfritt')}</button>
+    <button class="chip press" type="button" data-opt="fewerChanges" aria-pressed="${!!settings.fewerChanges}">${morphIco('fewer','check')}${tr('Færre bytter')}</button>
+    <button class="chip press" type="button" data-opt="stepFree" aria-pressed="${!!settings.stepFree}">${morphIco('access','check')}${tr('Trinnfritt')}</button>
     <label class="chip chip-sel">${ico('walk')}<select id="walkSel" aria-label="${tr('Gangfart')}">${steps.map(([v,l])=>`<option value="${v}"${v===w?' selected':''}>${tr(l)}</option>`).join('')}</select></label>
   </div>${settings.stepFree?`<p class="opts-note">${tr('Trinnfritt gjelder gangveien. Entur vet ennå ikke om alle holdeplasser og kjøretøy er trinnfrie.')}</p>`:''}`;
 }
 function bindTripOpts(){
-  $$('#sheetPage [data-opt]').forEach(b=>b.onclick=()=>{buzz(6);setTripPref(b.dataset.opt,!settings[b.dataset.opt]);startTripSearch();});
+  // Brikken skifter på stedet (hake og farge glir over), så søkes det på nytt.
+  $$('#sheetPage [data-opt]').forEach(b=>b.onclick=()=>{buzz(6);const on=!settings[b.dataset.opt];b.setAttribute('aria-pressed',String(on));
+    setTripPref(b.dataset.opt,on);startTripSearch();});
   $('#walkSel')&&($('#walkSel').onchange=e=>{setTripPref('walkKmh',+e.target.value);startTripSearch();});
 }
 /* ---------- Handlinger for valgt reise: varsel, del ankomst og billett ---------- */
 function tripActionsHtml(p){
   const rides=(p.legs||[]).some(l=>l.mode!=='foot'),on=goAlert.trip===p&&!goAlert.fired,tk=ticketLink();
   return`<div class="opts trip-actions" role="group" aria-label="${tr('Valg for reisen')}">
-    ${canNotify()&&rides?`<button class="chip press" type="button" id="goAlertBtn" aria-pressed="${on}">${ico('bell')}${on?tr('Varsel kl. {t}',{t:fmtT(alertAt(p))}):tr('Varsle meg')}</button>`:''}
-    <button class="chip press" type="button" id="shareBtn">${ico('share')}${tr('Del ankomst')}</button>
+    ${canNotify()&&rides?`<button class="chip press" type="button" id="goAlertBtn" aria-pressed="${on}">${morphIco('bell','bell-on')}<span class="lab">${alertLabel(p,on)}</span></button>`:''}
+    <button class="chip press" type="button" id="shareBtn">${morphIco('share','check')}<span class="lab">${tr('Del ankomst')}</span></button>
     ${rides?`<a class="chip press" id="ticketBtn" href="${tk.href}" target="_blank" rel="noopener" aria-label="${tr('Billett: kjøp i Ruter-appen ({where})',{where:tk.where})}">${ico('ticket')}${tr('Billett')}</a>`:''}
   </div>`;
 }
@@ -285,9 +298,13 @@ function bindTripActions(){
   $('#shareBtn')?.addEventListener('click',()=>shareArrival(p));
   $('#ticketBtn')?.addEventListener('click',()=>buzz(6));
 }
+const alertLabel=(p,on)=>on?tr('Varsel kl. {t}',{t:fmtT(alertAt(p))}):tr('Varsle meg');
 function tripActionsUpdate(){
   const box=$('#tripActions'),p=state.trips[state.tripIdx];
   if(!box||router.cur.name!=='trip'||!p)return;
+  // Varselknappen endres på stedet, så bjella og fargen glir over i stedet for å hoppe.
+  const b=$('#goAlertBtn',box),on=goAlert.trip===p&&!goAlert.fired;
+  if(b){b.setAttribute('aria-pressed',String(on));$('.lab',b).textContent=alertLabel(p,on);return;}
   box.innerHTML=tripActionsHtml(p);bindTripActions();
 }
 
@@ -384,7 +401,11 @@ pages.stop={
   },
   bindRows(id){
     $$('#sheetPage [data-alerts]').forEach(b=>b.onclick=()=>{buzz(6);router.go('alerts');});
-    $$('#sheetPage .filter').forEach(b=>b.onclick=()=>{buzz(6);stopFilter.set(id,b.dataset.m==='all'?null:b.dataset.m);router.refresh();});
+    $$('#sheetPage .filter').forEach(b=>b.onclick=()=>{if(b.getAttribute('aria-pressed')==='true')return;buzz(6);
+      // Brikken skifter på stedet, så fargen glir over; avgangene under tones inn som bekreftelse.
+      $$('#sheetPage .filter').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+      stopFilter.set(id,b.dataset.m==='all'?null:b.dataset.m);router.refresh();
+      ['#stopTl','#stopRest'].forEach(s=>{const el=$(s);if(el){el.classList.remove('refade');void el.offsetWidth;el.classList.add('refade');}});});
     $$('#sheetPage .dep[data-sj],#sheetPage .tl-dot[data-sj]').forEach(b=>b.onclick=()=>{if(!b.dataset.sj)return;buzz(6);
       openJourney(b.dataset.sj,id,b.classList.contains('tl-dot')?b:b.querySelector('.badge'),+b.dataset.at);});
   },
@@ -397,7 +418,8 @@ pages.stop={
     const nm=findStop(params.id)?.name||state.deps.get(params.id)?.name,ht=$('#sheetHead .head-title');if(nm&&ht&&ht.textContent!==nm)ht.textContent=nm;
     const sub=$('#stopSub'),fs=findStop(params.id),d=fs?.lat!=null?distTo(fs):null;
     if(sub)sub.textContent=stopSubText(state.deps.get(params.id),d);
-    o.top.innerHTML=n.top.innerHTML;o.rest.innerHTML=n.rest.innerHTML;
+    // Filterraden byttes bare når den er endret: da glir valget over, og raden beholder rulleposisjonen.
+    if(o.top.innerHTML!==n.top.innerHTML)o.top.innerHTML=n.top.innerHTML;o.rest.innerHTML=n.rest.innerHTML;
     morphTl(o.tl,n.tl);
     this.bindRows(params.id);updateStopCallout(params.id);
   },
@@ -588,13 +610,13 @@ function diagHtml(){
   return`<details class="group diag" style="margin-top:14px"><summary class="row-item"><span class="lbl"><b>${tr('Diagnostikk')}</b>
       <small>${diag.count?tn(diag.count,'{n} feil denne økten','{n} feil denne økten'):tr('Ingen feil denne økten')} · ${tn(calls,'{n} kall til Entur siste time','{n} kall til Entur siste time')}</small></span>${ico('chev')}</summary>
     ${n?`<ol class="diag-list">${diag.errors.map(e=>`<li><time>${fmtT(e.t)}</time><b>${esc(e.where)}</b><span>${esc(e.msg)}</span></li>`).join('')}</ol>`:''}
-    <button class="row-item press" id="diagCopy" type="button"><span class="lbl"><b>${tr('Kopier diagnostikk')}</b><small>${tr('Lim inn i en feilmelding')}</small></span></button></details>`;
+    <button class="row-item press" id="diagCopy" type="button"><span class="lbl"><b class="lab">${tr('Kopier diagnostikk')}</b><small>${tr('Lim inn i en feilmelding')}</small></span>${ico('check','done-ico')}</button></details>`;
 }
 pages.settings={
   snaps:['full'],initial:'full',
   head(){return`${backBtn()}<div class="titles"><div class="head-title">${tr('Innstillinger')}</div></div>`;},
   body(){
-    const walk=fmtDec(settings.walkKmh),seg=(id,label,key,opts)=>`<div class="row-item"><span class="lbl"><b>${label}</b></span><div class="seg" id="${id}" role="group" aria-label="${label}">
+    const walk=fmtDec(settings.walkKmh),seg=(id,label,key,opts)=>`<div class="row-item"><span class="lbl"><b>${label}</b></span><div class="segmented" id="${id}" role="group" aria-label="${label}" style="--n:${opts.length};--i:${Math.max(0,opts.findIndex(([k])=>settings[key]===k))}">
         ${opts.map(([k,l])=>`<button type="button" data-v="${k}" aria-pressed="${settings[key]===k}"${k==='en'?' lang="en"':k==='nb'?' lang="nb"':''}>${l}</button>`).join('')}</div></div>`;
     return`<div class="group">
       ${seg('themeSeg',tr('Utseende'),'theme',[['auto','Auto'],['light',tr('Lys')],['dark',tr('Mørk')]])}
@@ -622,8 +644,9 @@ pages.settings={
       <div><b>REIS</b><br>${tr('Sanntid og reisesøk fra Entur (åpne data, NLOD). Kart © OpenStreetMap-bidragsytere, OpenMapTiles og OpenFreeMap. Uavhengig app, ikke tilknyttet Ruter AS.')}</div></div>`;
   },
   bind(){
-    $$('#themeSeg button').forEach(b=>b.onclick=()=>{buzz(6);settings.theme=b.dataset.v;saveSettings();paintTheme();
-      $$('#themeSeg button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));});
+    // Markøren glir til valget, og hele appen tones over til det nye temaet.
+    $$('#themeSeg button').forEach(b=>b.onclick=()=>{if(settings.theme===b.dataset.v)return;buzz(6);settings.theme=b.dataset.v;saveSettings();
+      segPick($('#themeSeg'),b);crossfade(paintTheme);});
     // Språkbytte gjelder med en gang, uten omstart (applyLang i main.js).
     $$('#langSeg button').forEach(b=>b.onclick=()=>{buzz(6);settings.lang=b.dataset.v;saveSettings();applyLang();});
     $('#walkRange').oninput=e=>{setTripPref('walkKmh',+e.target.value);$('#walkVal').textContent=tr('{x} km/t',{x:fmtDec(settings.walkKmh)});};
@@ -634,11 +657,14 @@ pages.settings={
     $('#installBtn')?.addEventListener('click',doInstall);
     $('#diagCopy')?.addEventListener('click',async()=>{buzz(6);
       const txt=JSON.stringify({app:'REIS',agent:navigator.userAgent,online:navigator.onLine,callsLastHour:diag.calls.length,errors:diag.errors},null,1);
-      try{await navigator.clipboard.writeText(txt);toast(tr('Diagnostikk kopiert'));}catch(e){report('kopier diagnostikk',e);toast(tr('Kunne ikke kopiere'));}});
+      try{await navigator.clipboard.writeText(txt);flashDone($('#diagCopy'),tr('Kopiert'));}catch(e){report('kopier diagnostikk',e);notify({title:tr('Kunne ikke kopiere'),tone:'warn'});}});
+    // Nullstill bekreftes i selve knappen: første trykk spør, andre trykk innen fire sekunder sletter.
     $('#resetBtn').onclick=()=>{
-      if(confirm(tr('Slette favoritter, nylige reisemål og innstillinger?'))){
-        ['reisFavs','reisSettings','reisDepCache','reisRecentTargets','reisOnboarded','reisPlaces'].forEach(k=>{try{localStorage.removeItem(k);}catch(e){/* lagring kan være slått av (privat modus) */}});
-        location.reload();}};
+      const b=$('#resetBtn'),lab=$('.lbl b',b);
+      if(!b.classList.contains('arm')){buzz(10);b.classList.add('arm');lab.textContent=tr('Trykk igjen for å slette alt');announce(lab.textContent);
+        clearTimeout(b._arm);b._arm=setTimeout(()=>{b.classList.remove('arm');lab.textContent=tr('Nullstill appen');},4000);return;}
+      ['reisFavs','reisSettings','reisDepCache','reisRecentTargets','reisOnboarded','reisPlaces'].forEach(k=>{try{localStorage.removeItem(k);}catch(e){/* lagring kan være slått av (privat modus) */}});
+      location.reload();};
   }
 };
 $('#searchBar').onclick=()=>{buzz(8);router.go('search',{focus:'to'});};

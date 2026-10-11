@@ -42,13 +42,25 @@ Automatiske tester dekker kjernelogikken (`npm run check`) og hovedflytene i en 
 - [ ] Trykk på en prikk i tidslinjen: prikken blir linjeskiltet i turens overskrift.
 - [ ] Ringen tømmes jevnt (ikke i hopp). Ved «gå nå» puster den to ganger, og telefonen gir et lett dobbeltdunk.
 - [ ] Dra arket helt opp: kartet bak dempes litt. Dra ned på Hjem når listen står øverst: en liten buss kjører over, og avgangene oppdateres.
+- [ ] Ingen sprett: stjernen, flytekortet og kartnålene vokser fram og bremser mykt opp uten å skyte over.
 - [ ] Alt over skal holde 60 bilder i sekundet. Med «Reduser bevegelse» på: ingen glidende overganger, bare vanlige sidebytter.
+
+## 5b. Bekreftelse
+- [ ] Legg til en favoritt: brikken øverst sier «Lagt til i favoritter» med stjerne, og stjernen fylles med en myk ring. Gå til Hjem: favoritten lyser kort opp.
+- [ ] Fjern favoritten: brikken har «Angre», og Angre legger den tilbake. Det samme gjelder Hjem og Jobb (fra blyanten i søket).
+- [ ] Brikken står lenge nok til å bli lest. Hold fingeren på den: den blir stående. Trykk på den eller sveip den opp: den forsvinner.
+- [ ] På Hjem dekker brikken ikke søkefeltet.
+- [ ] «Del ankomst» uten delingsark og «Kopier diagnostikk»: knappen blir «✓ Kopiert» i to sekunder.
+- [ ] «Varsle meg»: knappen blir signalgul med fylt bjelle og klokkeslett. Slå av: brikken har «Angre».
+- [ ] Filter på holdeplassen: valgt filter får linjens farge, og avgangene tones inn. Reisevalg får hake.
+- [ ] Innstillinger: markøren glir mellom Auto, Lys og Mørk, og temaet tones over. Bryterne er grønne med hake.
+- [ ] «Nullstill appen»: første trykk spør i knappen. Uten nytt trykk går den tilbake etter fire sekunder.
 
 ## 6. Kart
 - [ ] Satellitt av og på: navnene er lesbare i begge.
 - [ ] På et knutepunkt: busser som står på samme sted, legges i en ring og overlapper ikke holdeplassikonet.
 - [ ] Trykk på en buss: turen åpnes, og bussen vises på linjen.
-- [ ] Bilder per sekund: kartet skal panorere og zoome uten hakking. Noter telefonmodell hvis det hakker.
+- [ ] Bilder per sekund: kartet skal panorere og zoome uten hakking, også med holdeplasskortet åpent. Noter telefonmodell hvis det hakker.
 
 ## 7. Nett og batteri
 - [ ] Flymodus: «Frakoblet» vises i søkefeltet, og Hjem sier «data fra kl. …». Ingen feilmeldinger.

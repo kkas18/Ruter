@@ -73,6 +73,8 @@ async function refreshHome(){
   ptrShow(46,'busy');
   try{await Promise.all([loadDeps(true),loadAlerts(),loadShortcuts(true)]);}catch(e){report('oppdater Hjem',e);}
   ptr.busy=false;ptrShow(0,'');ptrArm();
+  // Oppdater-knappen bekrefter med en hake når avgangene faktisk er ferske (ikke fra lageret).
+  if(navigator.onLine&&!state.nearby.slice(0,8).some(s=>state.deps.get(s.id)?.stale))flashDone($('#homeRefresh'));
 }
 // Lytteren som kan stoppe rullingen (touchmove med preventDefault), er bare på når dra-for-oppdatering
 // faktisk kan starte: Hjem, fullt ark og listen helt øverst. Ellers ruller listen uten å vente på skriptet.

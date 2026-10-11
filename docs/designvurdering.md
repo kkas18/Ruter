@@ -390,3 +390,61 @@ I tillegg fant jeg to feil med T-bane 5, som kjører forbi noen stasjoner to gan
 - **Ringlinjer:** T-bane 5 fra Sognsvann til Vestli passerer ti stasjoner to ganger på samme tur, blant dem Majorstuen, Jernbanetorget og Carl Berners plass. Turen kommer tilbake rundt 26 minutter senere med nytt mål, for eksempel «Ringen via Storo» kl. 15:42 og «Vestli» kl. 16:08. Det ga to feil:
   - **Den andre avgangen var skjult.** Holdeplassen slo sammen avganger med samme tur, fordi en buss kan stoppe ved to plattformer på samme holdeplass. Dermed forsvant «Vestli» kl. 16:08 helt til toget hadde passert første gang. I opptaket fra Carl Berners plass manglet fem T-bane-avganger den neste timen. Nå slås avganger med samme tur bare sammen når de er under ti minutter fra hverandre.
   - **Turen åpnet feil passering.** Trykket du på en senere avgang, viste turen tidene og toget for den første passeringen. Det samme gjaldt påstigning og avstigning i live-reisen. Nå åpnes passeringen du trykket på, fra holdeplassen, flytekortet og kartkortet. Live-reisen velger passeringen nærmest tiden i reiseforslaget.
+
+## Runde 11: visuell bekreftelse
+
+Gjennomgangen målte appen mot de beste appene i dag (Apple Maps, Google Maps, Citymapper), med skjermbilder tatt rett etter hvert trykk. Utseendet var sterkt. Svakheten var tilbakemeldingen: appen viste for dårlig at noe hadde skjedd. Snittet ble 8,6 med dette strengere kravet. Funnene:
+- Beskjedene var grå tekstbokser midt på kartet, uten ikon. «Lagt til i favoritter» la seg over avgangen i flytekortet. En beskjed på fire linjer forsvant etter 2,8 sekunder.
+- Det fantes ingen angre. Fjernet du Hjem, Jobb eller en favoritt, var den borte. «Nullstill appen» brukte nettleserens dialogboks.
+- Knappene viste ikke hva som skjedde: «Del ankomst» bekreftet bare med en beskjed, og «Oppdater» stoppet uten å bekrefte.
+- Valg hoppet i stedet for å gli: filtrene, reisevalgene og segmentvalgene. Temabyttet blinket over hele skjermen.
+- Bryterne var svarte i lyst tema og grønne i mørkt.
+- Det var rester av sprett: stjernen vokste til 135 % og vippet, flytekortet spratt inn fra 60 %, og kartnålene, logoen og bryterknotten skjøt over målet.
+
+| Område | Før | Etter | Hvorfor |
+|---|---|---|---|
+| Design | 9 | **9,5** | Samme bekreftelse overalt, og segmentvalgene har riktig form |
+| Grafikk | 9,5 | **9,5** | Uendret |
+| Animasjoner | 8,5 | **9,5** | Ingen sprett. Valg glir, ikoner skifter, og temaet tones over |
+| Appfølelse | 8 | **9,5** | Bekreftelse med ikon, Angre, knapper som skifter tilstand, og det du lagret lyser opp der det havnet |
+| Tilgjengelighet | 8,5 | **9** | Beskjeden står lenge nok til å bli lest og kan holdes eller lukkes. axe: 0 brudd på 12 skjermer, i lyst og mørkt tema, på norsk og engelsk |
+| Ytelse og batteri | 8,5 | **9** | Flytekortet er tett og tegnes raskere. Ingen gjennomsiktige flater over kartet |
+| Kodekvalitet | 8,5 | **9** | Ny ende-til-ende-test for bekreftelsene. En ustabil test er rettet ved roten |
+| **Snitt** | **8,6** | **9,3** | |
+
+### Gjort i denne runden
+1. **Ny bekreftelse øverst:** ikon, kort tittel og ev. en undertekst, på en mørk flate i lyst tema og en lys i mørkt. På Hjem legger den seg under søkefeltet, så feltet kan brukes. Den står i 2,6–7 sekunder etter lengden, og lenger når den har «Angre». Den står stille mens du holder eller peker på den, og forsvinner når du trykker på den eller sveiper den opp. En hake tegnes inn når noe er lagret. Alle beskjeder er skrevet om til en kort tittel med en undertekst.
+2. **Angre:** når du fjerner en favoritt, Hjem eller Jobb, eller slår av et varsel. Angre legger favoritten tilbake på samme plass. «Nullstill appen» spør i selve knappen («Trykk igjen for å slette alt», med en strek som viser de fire sekundene), og spørsmålet leses opp.
+3. **Knapper som skifter tilstand:**
+   - Stjernen fylles med én myk ring.
+   - «Varsle meg» får fylt bjelle, signalgul farge og klokkeslett.
+   - «Del ankomst» og «Kopier diagnostikk» blir «✓ Kopiert» i to sekunder.
+   - «Oppdater» ender med en grønn hake når avgangene er ferske.
+4. **Valg som glir:**
+   - Valgt filter på holdeplassen får linjens farge (Buss rød, T-bane oransje), og avgangene tones inn.
+   - Reisevalgene får hake når de er på.
+   - Segmentvalgene (Nå/Avreise/Ankomst, Utseende og Språk) har en markør som glir.
+   - Bryterne er grønne med hake i knotten, i begge temaer.
+5. **«Her havnet det»:** lagrer du Hjem, Jobb eller en favoritt, lyser stedet kort opp i signalgult der det havnet. Det fortsetter selv om siden tegnes på nytt mens det lyser.
+6. **Mykt temabytte:** hele appen tones over til det nye temaet. Det gjelder også når telefonen bytter tema selv.
+7. **Ingen sprett:** fjærkurven som skjøt over målet, er byttet med en myk oppbremsing. Det gjelder stjernen, flytekortet, kartnålene, logoen og bryterknotten.
+
+### Glass ble målt bort
+Planen var halvgjennomsiktig glass på søkefeltet, kartknappene og bekreftelsen, slik de nyeste appene har. Målingene viste en høy pris. Mens kartet beveget seg, tok hvert bilde to til sju ganger lenger å tegne (programvaregrafikk). Uten uskarphet ble det ikke bedre, så det er gjennomsiktigheten i seg selv som koster. Glasset var dessuten nesten usynlig på det lyse kartet. Derfor er alle flater over kartet tette, med en tynn lys kant for dybde. Holdeplasskortet på kartet hadde glass fra før og er også gjort tett:
+
+| Mens kartet panoreres (ms per bilde, programvaregrafikk) | Med glass | Tett |
+|---|---|---|
+| Søkefelt og kartknapper | 419 | **72** |
+| Holdeplasskortet på kartet | 266 | **132** |
+
+Tallene er overdrevet sammenlignet med en telefon med grafikkbrikke. Retningen er likevel klar.
+
+### Funnet underveis
+- **Segmentvalgene hadde samme klassenavn som etappene i reisestripen.** De arvet etappenes kantradius og «vokste» inn fra venstre hver gang Innstillinger eller søket ble åpnet. De har nå sitt eget navn.
+- **Stjernen beholdt lesteksten «Legg til i favoritter»** etter at stedet var lagt til, helt til siden ble tegnet på nytt. Nå følger teksten tilstanden.
+- **Filterraden ble byttet ut hvert 20. sekund**, så den hoppet tilbake til start hvis du hadde rullet den. Nå byttes den bare når den er endret.
+- **En ende-til-ende-test ble ustabil:** bekreftelsen i glass gjorde hvert bilde så tregt at haken ble stående i opptil 4 sekunder. Testen ventet da forgjeves på at animasjonene skulle bli ferdige. Med tett flate er testen stabil (9 av 9 to ganger på rad), uten at testen er endret for å slippe gjennom.
+
+### Fortsatt åpent
+- **Varsel når appen er lukket:** krever en liten push-tjeneste.
+- **Måling på ekte telefoner:** se testplanen, særlig at kartet panorerer jevnt med holdeplasskortet åpent.
