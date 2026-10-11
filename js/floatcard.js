@@ -98,10 +98,10 @@ const fcMinKeys=new Map();
 function fcMinutes(key,r,big){
   const m=minUntil(r.exp),prev=fcMinKeys.get(key);fcMinKeys.set(key,m);
   const tick=prev!=null&&prev!==m?'tick':'';
-  const live=r.rt?'<i class="live" title="Sanntid"></i>':'<i class="sched" title="Rutetid"></i>';
+  const live=r.rt?liveDot():`<i class="sched" role="img" aria-label="${tr('Rutetid')}" title="${tr('Rutetid')}"></i>`;
   const late=fmtT(r.exp)!==fmtT(r.aimed)&&r.exp>r.aimed?Math.round((r.exp-r.aimed)/60000):0;
-  const lateTag=late>0?`<em class="fc-late" title="${late} min forsinket (rutetid ${fmtT(r.aimed)})">+${late}</em>`:'';
-  if(m<=0)return`<span class="fc-t${big?' big':''}">${live}${lateTag}<b class="fc-now">nå</b></span>`;
+  const lateTag=late>0?`<em class="fc-late" title="${tr('{n} min forsinket (rutetid {t})',{n:late,t:fmtT(r.aimed)})}">+${late}</em>`:'';
+  if(m<=0)return`<span class="fc-t${big?' big':''}">${live}${lateTag}<b class="fc-now">${tr('nå')}</b></span>`;
   if(m>=60)return`<span class="fc-t${big?' big':''}">${live}${lateTag}<b class="${tick}">${fmtT(r.exp)}</b></span>`;
   return`<span class="fc-t${big?' big':''}">${live}${lateTag}<b class="${tick}">${m}</b><small>min</small></span>`;
 }
@@ -117,10 +117,9 @@ function updateStopCallout(id){
   const first=rows[0],rest=rows.slice(1);
   let body;
   if(!entry)body='<div class="fc-row skel-row"><span class="skel" style="width:34px;height:24px"></span><span class="skel"></span><span class="skel" style="width:40px"></span></div>'.repeat(compact?1:2);
-  else if(!first)body='<p class="fc-empty">Ingen avganger den neste timen</p>';
+  else if(!first)body=`<p class="fc-empty">${tr('Ingen avganger den neste timen')}</p>`;
   else{
-    const qn=first.mode==='rail'||first.mode==='metro'?'Spor':'Plattform';
-    const tags=[first.quay?`<span class="quay" title="${qn} ${esc(first.quay)}" aria-label="${qn} ${esc(first.quay)}">${esc(first.quay)}</span>`:'',occHtml(first.occ)].join('');
+    const tags=[first.quay?quayChip(first.mode,first.quay):'',occHtml(first.occ)].join('');
     body=`<button class="fc-row fc-first" type="button" style="--i:0" data-sj="${esc(first.sj||'')}">${lineBadge(first.pub,first.mode,'badge-l')}
         <span class="fc-dest"><b>${esc(first.dest)}</b>${tags?`<small class="fc-tags">${tags}</small>`:''}</span>
         ${fcMinutes(`${id}|${first.pub}|${first.dest}|${first.aimed}`,first,true)}</button>`+
@@ -132,9 +131,9 @@ function updateStopCallout(id){
     bind:el=>el.querySelectorAll('.fc-row').forEach(b=>b.addEventListener('click',()=>{buzz(6);
       if(b.dataset.sj)openJourney(b.dataset.sj,id,b.querySelector('.badge'));else snapTo('half');}))},
     `<header class="fc-head"><span class="fc-grip" aria-hidden="true"></span><div class="fc-title"><b>${esc(s.name)}</b>
-      ${anyRt?'<i class="live" title="Sanntid" aria-label="Sanntid"></i>':''}</div>
-      <button class="fc-close" type="button" aria-label="Lukk">${ico('x')}</button></header><div class="fc-body">${body}</div>`,
-    {label:`Avganger fra ${s.name}`});
+      ${anyRt?liveDot():''}</div>
+      <button class="fc-close" type="button" aria-label="${tr('Lukk')}">${ico('x')}</button></header><div class="fc-body">${body}</div>`,
+    {label:tr('Avganger fra {name}',{name:s.name})});
   fc$.el?.classList.toggle('compact',compact);
 }
 function removeStopCallout(){if(fc$.target?.key?.startsWith('stop:'))fcClose();}
@@ -151,12 +150,12 @@ function showVehicleCard(p){
   let next='';
   if(j){const e=estimate(j);const c=e&&j.calls[Math.min(j.calls.length-1,e.at+1)];
     const t=c&&arrT(c);if(t){const m=Math.round((t-Date.now())/60000);
-      next=`<div class="fc-meta">Neste stopp <b>${m<=0?'nå':`om ${m} min`}</b></div>`;}}
+      next=`<div class="fc-meta">${tr('Neste stopp')} <b>${m<=0?tr('nå'):tr('om {n} min',{n:m})}</b></div>`;}}
   fcOpen({key:'veh:'+vid,moving:true,lngLat:()=>vehicleLngLat(vid),onClose:fcClose},
     `<header class="fc-head"><span class="fc-grip" aria-hidden="true"></span><div class="fc-title fc-veh">
       <span class="badge badge-l" style="--c:${md.c}">${esc(p.line||md.n)}</span><b>${p.dest?esc(p.dest):md.n}</b></div>
-      <button class="fc-close" type="button" aria-label="Lukk">${ico('x')}</button></header>
-     <div class="fc-body"><div class="fc-meta">${md.n}${p.line?' '+esc(p.line):''} · ${p.est?'<span class="fc-src est">Beregnet fra sanntid</span>':'<span class="fc-src"><i class="live"></i>GPS-posisjon</span>'}</div>${next}</div>`,
+      <button class="fc-close" type="button" aria-label="${tr('Lukk')}">${ico('x')}</button></header>
+     <div class="fc-body"><div class="fc-meta">${md.n}${p.line?' '+esc(p.line):''} · ${p.est?`<span class="fc-src est">${tr('Beregnet fra sanntid')}</span>`:`<span class="fc-src"><i class="live" aria-hidden="true"></i>${tr('GPS-posisjon')}</span>`}</div>${next}</div>`,
     {label:`${md.n} ${p.line||''}`});
 }
 
@@ -168,5 +167,5 @@ function toggleFav(id){
   saveJSON('reisFavs',favs);
   const b=$('#favBtn');if(b){b.setAttribute('aria-pressed',String(!had));if(!had){b.classList.remove('bump');void b.offsetWidth;b.classList.add('bump');}}
   renderStopsLayer();
-  toast(had?'Fjernet fra favoritter':'Lagt til i favoritter');
+  toast(had?tr('Fjernet fra favoritter'):tr('Lagt til i favoritter'));
 }

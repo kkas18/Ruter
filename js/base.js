@@ -19,7 +19,7 @@ const API={
   reverse:'https://api.entur.io/geocoder/v3/reverse',
   vm:'https://api.entur.io/realtime/v1/rest/vm',
   sx:'https://api.entur.io/realtime/v1/rest/sx',
-  client:'nikola-reis-pwa'
+  client:'kkas18-reis' // ET-Client-Name: «eier-app», så Entur vet hvem som ringer og kan si fra ved endringer
 };
 // Kjente farger for Oslo-trafikken, justert for hvit tekst (WCAG AA).
 const MODES={
@@ -27,15 +27,34 @@ const MODES={
   rail:{n:'Tog',c:'#5845A6'}, water:{n:'Båt',c:'#08737D'}, coach:{n:'Ekspress',c:'#8E2F57'},
   funicular:{n:'Bane',c:'#5D676C'}, cableway:{n:'Bane',c:'#5D676C'}, air:{n:'Fly',c:'#5D676C'}
 };
-const modeOf=m=>MODES[m]||{n:'Kollektiv',c:'#5D676C'};
+// Navnet oversettes når det vises; nøkkelen (bus, tram …) er den samme på alle språk.
+const modeOf=m=>{const x=MODES[m]||{n:'Kollektiv',c:'#5D676C'};return{n:tr(x.n),c:x.c};};
 const OSLO=[59.9139,10.7522];
 const REFRESH_MS=30000;
 
 /* ---------- Lagring ---------- */
 function loadJSON(k,f){try{const v=JSON.parse(localStorage.getItem(k));return v??f;}catch(e){return f;}}
 function saveJSON(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){/* lagring kan være slått av (privat modus) */}}
-let settings=Object.assign({theme:'auto',walkKmh:4.5,showVehicles:true,vibrate:true,basemap:'map'},loadJSON('reisSettings',{}));
+let settings=Object.assign({theme:'auto',lang:'auto',walkKmh:4.5,showVehicles:true,vibrate:true,basemap:'map',stepFree:false,fewerChanges:false},loadJSON('reisSettings',{}));
 coreCfg.walkKmh=settings.walkKmh;
+// Språk: «Auto» følger telefonen. Settes før noe tegnes.
+const resolveLang=()=>settings.lang==='auto'?detectLang(navigator.languages?.length?navigator.languages:[navigator.language||'nb']):settings.lang;
+setLang(resolveLang());document.documentElement.lang=I18N.lang;
+const geoLang=()=>I18N.lang==='en'?'en':'no'; // språket Enturs stedssøk svarer på
+// Fast tekst i index.html: data-t oversetter innholdet, data-t-attr de nevnte attributtene. Den norske
+// originalen huskes, så språket kan byttes fram og tilbake uten omstart.
+const staticSrc=new WeakMap();
+function translateStatic(){
+  $$('[data-t],[data-t-attr]').forEach(el=>{
+    let src=staticSrc.get(el);
+    if(!src){src={html:el.hasAttribute('data-t')?el.innerHTML.trim():null,attrs:{}};
+      (el.dataset.tAttr||'').split(',').filter(Boolean).forEach(a=>{src.attrs[a]=el.getAttribute(a);});staticSrc.set(el,src);}
+    if(src.html!=null)el.innerHTML=tr(src.html);
+    Object.entries(src.attrs).forEach(([a,v])=>el.setAttribute(a,tr(v)));
+  });
+  document.title=tr('REIS – kollektiv i Oslo');
+}
+translateStatic();
 const asArray=v=>Array.isArray(v)?v:[];
 let favs=asArray(loadJSON('reisFavs',[]));
 let recentTargets=asArray(loadJSON('reisRecentTargets',[]));
@@ -56,7 +75,7 @@ function report(where,e){
   if(e?.name==='AbortError')return; // tidsavbrudd vi selv har satt; vises som nettstatus
   if(!navigator.onLine&&e instanceof TypeError)return; // frakoblet: vises som «Frakoblet», ikke som feil
   diag.count++;
-  diag.errors.unshift({t:Date.now(),where,msg:String(e?.message||e||'ukjent feil').slice(0,240)});
+  diag.errors.unshift({t:Date.now(),where,msg:String(e?.message||e||tr('ukjent feil')).slice(0,240)});
   if(diag.errors.length>25)diag.errors.length=25;
   console.warn(`[REIS] ${where}:`,e);
 }
@@ -83,11 +102,11 @@ const distTo=s=>state.pos?Math.round(geoDist(state.pos,[s.lat,s.lon])):null;
 /* ---------- Nettstatus ---------- */
 function setNetworkState(ok,reason=''){
   const chip=$('#netChip');chip.hidden=!!ok;
-  if(!ok)chip.textContent=reason||'Reisedata utilgjengelig';
+  if(!ok)chip.textContent=reason||tr('Reisedata utilgjengelig');
 }
 if(location.protocol==='file:')$('#setupNotice').hidden=false;
-if(!navigator.onLine)setNetworkState(false,'Frakoblet');
-addEventListener('offline',()=>setNetworkState(false,'Frakoblet'));
+if(!navigator.onLine)setNetworkState(false,tr('Frakoblet'));
+addEventListener('offline',()=>setNetworkState(false,tr('Frakoblet')));
 addEventListener('online',()=>{setNetworkState(true);refreshAll();});
 
 /* ---------- Tema ---------- */
@@ -110,7 +129,7 @@ const canInstall=()=>!window.REIS_ANDROID&&!matchMedia('(display-mode: standalon
 async function doInstall(){
   buzz(10);
   if(deferredPrompt){deferredPrompt.prompt();await deferredPrompt.userChoice.catch(()=>{});deferredPrompt=null;}
-  else toast('Åpne nettlesermenyen og velg «Legg til på startskjermen».');
+  else toast(tr('Åpne nettlesermenyen og velg «Legg til på startskjermen».'));
 }
 
 /* ---------- GraphQL ---------- */
@@ -130,14 +149,14 @@ async function gql(query,variables={}){
     const r=await fetchWithTimeout(API.jp,{method:'POST',
       headers:{'Content-Type':'application/json','ET-Client-Name':API.client},
       body:JSON.stringify({query,variables})},20000);
-    if(!r.ok)throw new Error(r.status===429?'For mange forespørsler mot Entur. Vent litt.':'Entur svarte '+r.status);
+    if(!r.ok)throw new Error(r.status===429?tr('For mange forespørsler mot Entur. Vent litt.'):tr('Entur svarte {s}',{s:r.status}));
     const j=await r.json();
     if(j.errors&&j.errors.length)throw new Error(j.errors[0].message);
     setNetworkState(true);
     return j.data;
   }catch(e){
     if(e.name==='AbortError'||e instanceof TypeError||!navigator.onLine)
-      setNetworkState(false,navigator.onLine?'Entur svarer ikke':'Frakoblet');
+      setNetworkState(false,navigator.onLine?tr('Entur svarer ikke'):tr('Frakoblet'));
     throw e;
   }
 }
@@ -148,10 +167,15 @@ const Q_DEP=`query($id:String!,$n:Int!){stopPlace(id:$id){id name latitude longi
     quay{publicCode}
     serviceJourney{id journeyPattern{line{publicCode transportMode}}}}}}`;
 const Q_AUTO=`query($q:String!){autocomplete(queryText:$q,layers:[stopPlace],size:8){id name locality layer latitude longitude}}`;
+// Reisevalg som gjelder alle søk, også snarveiene Hjem og Jobb: gangfarten din, trinnfri gange
+// (Entur tar foreløpig bare hensyn til det på gangveien) og færre bytter. Det siste gir et lite
+// tillegg per bytte hos Entur; i tillegg sorteres reiser med færrest bytter først (data.js).
+const tripPrefs=()=>({walk:+(settings.walkKmh/3.6).toFixed(2),wheel:!!settings.stepFree,xfer:settings.fewerChanges?600:0});
+const TRIP_ARGS='$walk:Float!,$wheel:Boolean!,$xfer:Int!',TRIP_OPTS='walkSpeed:$walk,wheelchairAccessible:$wheel,transferPenalty:$xfer';
 // Entur endrer av og til skjemaet: start med full detalj og fall tilbake ved valideringsfeil – aldri ved nettfeil.
-const Q_TRIP=level=>`query($fl:Float!,$fp:Float!,$tl:Float!,$tp:Float!,$dt:DateTime,$arr:Boolean){
+const Q_TRIP=level=>`query($fl:Float!,$fp:Float!,$tl:Float!,$tp:Float!,$dt:DateTime,$arr:Boolean,$n:Int!,${TRIP_ARGS}){
   trip(from:{coordinates:{latitude:$fl,longitude:$fp}},to:{coordinates:{latitude:$tl,longitude:$tp}},
-       numTripPatterns:6,dateTime:$dt,arriveBy:$arr){
+       numTripPatterns:$n,dateTime:$dt,arriveBy:$arr,${TRIP_OPTS}){
     tripPatterns{expectedStartTime expectedEndTime duration walkDistance legs{
       mode distance duration expectedStartTime expectedEndTime
       fromPlace{name${level<=1?' quay{publicCode latitude longitude}':''}}

@@ -22,3 +22,23 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
+
+  e2e:
+    name: Ende-til-ende
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-resultater
+          path: test-results/
+          retention-days: 7

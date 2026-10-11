@@ -5,11 +5,13 @@
    Appen skal vise heller enn å forklare: én ring for «hvor lenge», ett merke for
    «avvik», tre figurer for «hvor fullt». Teksten ligger i aria-label og title. */
 // until: tidspunktet ringen teller ned mot. Da tømmes den jevnt hvert sekund (tickRings i main.js).
+// aria: nøkkelen for ordet under ringen («Gå om», «Går om» …); ringState oversetter den.
+const ringCls=r=>`ring ${r.cls}${r.clock?' clock':''}${r.zero?' zero':''}${r.long?' long':''}`;
 function ringHtml(min,{win=30,size=44,aria='',clock=null,urg=min,until=0}={}){
-  const r=ringState(min,win,clock,urg);
-  return`<span class="ring-w"><span class="ring ${r.cls}${r.clock?' clock':''}" style="--s:${size}px;--f:${r.f}" data-win="${win}" data-aria="${esc(aria)}"${until?` data-until="${until}"`:''} role="img" aria-label="${esc(`${aria} ${r.label}`.trim())}">
+  const r=ringState(min,win,clock,urg,aria);
+  return`<span class="ring-w"><span class="${ringCls(r)}" style="--s:${size}px;--f:${r.f}" data-win="${win}" data-aria="${esc(aria)}"${until?` data-until="${until}"`:''} role="img" aria-label="${esc(r.label)}">
     <svg viewBox="0 0 44 44" aria-hidden="true"><circle class="trk" cx="22" cy="22" r="19"/><circle class="val" cx="22" cy="22" r="19" pathLength="100"/></svg>
-    <b>${r.txt}</b><small>${r.unit}</small></span><em class="ring-lab" aria-hidden="true">${esc(ringWord(aria.toLowerCase(),min))}</em></span>`;
+    <b>${esc(r.txt)}</b><small>${esc(r.unit)}</small></span><em class="ring-lab" aria-hidden="true">${esc(r.lab)}</em></span>`;
 }
 function breathe(el){
   el.classList.remove('breathe');void el.offsetWidth;el.classList.add('breathe');
@@ -19,14 +21,14 @@ function breathe(el){
 function setRing(el,min,clock=null,urg=min){
   if(!el)return;
   const w=el.closest('.ring-w');el=el.classList.contains('ring')?el:el.querySelector('.ring');
-  const r=ringState(min,+el.dataset.win||30,clock,urg),b=el.querySelector('b'),wasGo=el.classList.contains('go'),keep=el.classList.contains('breathe');
-  el.className=`ring ${r.cls}${r.clock?' clock':''}${keep?' breathe':''}`;el.style.setProperty('--f',String(r.f));
+  const r=ringState(min,+el.dataset.win||30,clock,urg,el.dataset.aria||''),b=el.querySelector('b'),wasGo=el.classList.contains('go'),keep=el.classList.contains('breathe');
+  el.className=ringCls(r)+(keep?' breathe':'');el.style.setProperty('--f',String(r.f));
   // Når det blir «gå nå», puster ringen to ganger. Bare ved overgangen, aldri i løkke.
   if(r.cls==='go'&&!wasGo&&min>-1)breathe(el);
   if(b.textContent!==r.txt){b.textContent=r.txt;b.classList.remove('tick');void b.offsetWidth;b.classList.add('tick');}
   el.querySelector('small').textContent=r.unit;
-  el.setAttribute('aria-label',`${el.dataset.aria||''} ${r.label}`.trim());
-  const lab=w?.querySelector('.ring-lab');if(lab)lab.textContent=ringWord((el.dataset.aria||'').toLowerCase(),min);
+  el.setAttribute('aria-label',r.label);
+  const lab=w?.querySelector('.ring-lab');if(lab&&lab.textContent!==r.lab)lab.textContent=r.lab;
 }
 // Linjer med trafikkmelding får et lite varselmerke på linjeskiltet.
 // Avvik for en linje. Planlagte endringer tas bare med når de ber om det (all).
@@ -43,26 +45,32 @@ const OCC={empty:1,manySeatsAvailable:1,fewSeatsAvailable:2,standingRoomOnly:3,c
 const OCC_TXT=['','God plass','Få ledige seter','Fullt – ståplass'];
 function occHtml(status){
   const n=OCC[status];if(!n)return'';
-  return`<span class="occ o${n}" role="img" aria-label="${OCC_TXT[n]}" title="${OCC_TXT[n]}">${ico('person')}${ico('person')}${ico('person')}</span>`;
+  return`<span class="occ o${n}" role="img" aria-label="${tr(OCC_TXT[n])}" title="${tr(OCC_TXT[n])}">${ico('person')}${ico('person')}${ico('person')}</span>`;
 }
 
 /* ---------- Avgangsrader ---------- */
+// Sanntidsprikken. Skjermlesere hører «Sanntid»; seende ser den grønne prikken.
+const liveDot=()=>`<i class="live" role="img" aria-label="${tr('Sanntid')}" title="${tr('Sanntid')}"></i>`;
+// Plattform (buss, trikk) eller spor (tog, T-bane): bokstaven vises, hele navnet leses opp.
+function quayChip(mode,code){
+  const n=mode==='rail'||mode==='metro'?tr('Spor'):tr('Plattform');
+  return`<span class="quay" title="${n} ${esc(code)}"><span class="sr-only">${n} </span>${esc(code)}</span>`;
+}
 const lastMinutes=new Map();
 function whenHtml(key,r){
   const m=minUntil(r.exp),delay=fmtT(r.exp)===fmtT(r.aimed)?0:Math.round((r.exp-r.aimed)/60000);
   const prev=lastMinutes.get(key);lastMinutes.set(key,m);
   const tick=prev!=null&&prev!==m?' tick':'';
-  const main=m<=0?'<span class="now">nå</span>':m<60?`<span class="n${tick}">${m}<small>min</small></span>`:`<span class="n${tick}">${fmtT(r.exp)}</span>`;
+  const main=m<=0?`<span class="now">${tr('nå')}</span>`:m<60?`<span class="n${tick}">${m}<small>min</small></span>`:`<span class="n${tick}">${fmtT(r.exp)}</span>`;
   let sub='';
-  if(m<60)sub=`${r.rt?'<i class="live" title="Sanntid"></i>':''}${delay>0?`<s>${fmtT(r.aimed)}</s><span class="late">${fmtT(r.exp)}</span>`:fmtT(r.exp)}`;
+  if(m<60)sub=`${r.rt?liveDot():''}${delay>0?`<s>${fmtT(r.aimed)}</s><span class="late">${fmtT(r.exp)}</span>`:fmtT(r.exp)}`;
   else if(delay>0)sub=`<span class="late">+${delay} min</span>`;
   return`<div class="when">${main}${sub?`<span class="sub">${sub}</span>`:''}</div>`;
 }
 function depRow(s,r){
   const dist=distTo(s);
   const reach=s.stale?null:reachStatus(dist,r.exp);
-  const qn=r.mode==='rail'||r.mode==='metro'?'Spor':'Plattform';
-  const tags=[r.quay?`<span class="quay" title="${qn} ${esc(r.quay)}" aria-label="${qn} ${esc(r.quay)}">${esc(r.quay)}</span>`:'',occHtml(r.occ),
+  const tags=[r.quay?quayChip(r.mode,r.quay):'',occHtml(r.occ),
     reach?`<span class="reach ${reach.cls}">${esc(reach.label)}</span>`:''].filter(Boolean).join('');
   return`<button class="dep press" type="button" data-sj="${esc(r.sj||'')}" data-stop="${esc(s.id)}">${lineBadge(r.pub,r.mode,'badge-l',false)}
     <span class="dest"><b>${esc(r.dest)}</b>${tags?`<small>${tags}</small>`:''}</span>
@@ -88,33 +96,33 @@ function stopTimeline(s,rows,{compact=false,maxLanes=compact?2:6,width=0}={}){
       <div class="tl-plot" style="--c:${modeOf(L.mode).c}"><span class="tl-dest">${esc(L.dest)}</span>
       ${walk?`<span class="tl-walk" style="width:${wp}%"></span>`:''}
       ${dots.map(({r,x:xi,more})=>{const m=Math.max(0,minUntil(r.exp)),late=r.exp-r.aimed>60000;
-        const lab=`${modeOf(r.mode).n} ${r.pub} mot ${r.dest}, ${m<=0?'nå':`om ${m} min`}${late?', forsinket':''}${r.rt?'':', rutetid'}${more.length?`, og ${more.length} til rett etter`:''}`;
-        return`${late?`<span class="tl-late" data-sj="${esc(r.sj||'')}" style="left:${x(r.aimed)}%;width:${xi-x(r.aimed)}%"></span>`:''}<${tag} class="tl-dot${r.rt?'':' sched'}${m<walk?' miss':''}"${tag==='button'?' type="button"':''}
-          style="left:${xi}%" data-sj="${esc(r.sj||'')}" data-exp="${r.exp}" aria-label="${esc(lab)}">${m<=0?'nå':m}${more.length?`<sup>+${more.length}</sup>`:''}</${tag}>`;}).join('')}</div></div>`;
+        const lab=`${tr('{mode} {line} mot {dest}',{mode:modeOf(r.mode).n,line:r.pub,dest:r.dest})}, ${m<=0?tr('nå'):tr('om {n} min',{n:m})}${late?tr(', forsinket'):''}${r.rt?'':tr(', rutetid')}${more.length?tr(', og {n} til rett etter',{n:more.length}):''}`;
+        return`${late?`<span class="tl-late" data-sj="${esc(r.sj||'')}" style="left:${x(r.aimed)}%;width:${xi-x(r.aimed)}%"></span>`:''}<${tag} class="tl-dot${r.rt?'':' sched'}${m<walk?' miss':''}"${tag==='button'?' type="button"':' role="img"'}
+          style="left:${xi}%" data-sj="${esc(r.sj||'')}" data-exp="${r.exp}" aria-label="${esc(lab)}">${m<=0?tr('nå'):m}${more.length?`<sup>+${more.length}</sup>`:''}</${tag}>`;}).join('')}</div></div>`;
   };
-  const html=`<div class="tl${compact?' tl-compact':''}" role="group" aria-label="Avganger de neste ${W} minuttene">
-    ${compact?'':`<div class="tl-axis"><span></span><div>${ticks.map(t=>`<em style="left:${t/W*100}%">${t?t:'nå'}</em>`).join('')}</div></div>`}
+  const html=`<div class="tl${compact?' tl-compact':''}" role="group" aria-label="${tr('Avganger de neste {n} minuttene',{n:W})}">
+    ${compact?'':`<div class="tl-axis"><span></span><div>${ticks.map(t=>`<em style="left:${t/W*100}%">${t?t:tr('nå')}</em>`).join('')}</div></div>`}
     ${list.map(lane).join('')}
-    ${!compact&&(walk||hidden)?`<div class="tl-legend">${walk?`<span class="tl-walk-key"></span>${ico('walk')}${walk} min å gå`:''}${hidden?`<span class="tl-more">+${hidden} til i listen</span>`:''}</div>`:''}
+    ${!compact&&(walk||hidden)?`<div class="tl-legend">${walk?`<span class="tl-walk-key"></span>${ico('walk')}${tr('{n} min å gå',{n:walk})}`:''}${hidden?`<span class="tl-more">${tr('+{n} til i listen',{n:hidden})}</span>`:''}</div>`:''}
     ${compact&&hidden?`<span class="tl-more">+${hidden}</span>`:''}
   </div>`;
   return{html,shown,W,hidden};
 }
 // Snarveiene Hjem og Jobb. På Hjem viser de neste reise herfra; i søket kan de endres.
 function placeTiles({editable=false}={}){
-  return`<div class="places" role="group" aria-label="Snarveier">${Object.entries(PLACE_KINDS).map(([k,K])=>{
-    const p=places[k];
-    if(!p)return`<button class="place-tile add press" type="button" data-pick="${k}">${ico(K.icon)}<span><b>${K.n}</b><small>Legg til</small></span></button>`;
+  return`<div class="places" role="group" aria-label="${tr('Snarveier')}">${Object.entries(PLACE_KINDS).map(([k,K])=>{
+    const p=places[k],kn=tr(K.n);
+    if(!p)return`<button class="place-tile add press" type="button" data-pick="${k}">${ico(K.icon)}<span><b>${kn}</b><small>${tr('Legg til')}</small></span></button>`;
     // Første linje: navn og linjen du tar. Andre linje: når du må gå. Ankomst står i skjermleserteksten.
     const sc=shortcuts.get(k);let info,badge='',arrive='';
-    if(sc?.here)info='Du er her';
-    else if(sc?.start){const m=minUntil(sc.start);info=m<=0?'Gå nå':`Gå om ${m} min`;arrive=`, fremme kl. ${fmtT(sc.end)}`;
+    if(sc?.here)info=tr('Du er her');
+    else if(sc?.start){const m=minUntil(sc.start);info=m<=0?tr('Gå nå'):tr('Gå om {n} min',{n:m});arrive=tr(', fremme kl. {t}',{t:fmtT(sc.end)});
       if(sc.ride&&!editable)badge=lineBadge(sc.ride.code,sc.ride.mode,'',false);}
-    else if(sc?.none)info='Ingen reise funnet';
-    else info=state.pos?'Henter…':p.name;
+    else if(sc?.none)info=tr('Ingen reise funnet');
+    else info=state.pos?tr('Henter…'):p.name;
     const urgent=sc?.start&&minUntil(sc.start)<=2;
-    return`<span class="place-cell"><button class="place-tile press${urgent?' soon':''}${editable?' editable':''}" type="button" data-place="${k}" aria-label="${K.n}: ${esc(p.name)}. ${esc(info+arrive)}">${ico(K.icon)}
-      <span><b>${K.n}${badge}</b><small>${esc(info)}</small></span></button>${editable?`<button class="place-edit press" type="button" data-pick="${k}" aria-label="Endre ${K.n}">${ico('edit')}</button>`:''}</span>`;
+    return`<span class="place-cell"><button class="place-tile press${urgent?' soon':''}${editable?' editable':''}" type="button" data-place="${k}" aria-label="${kn}: ${esc(p.name)}. ${esc(info+arrive)}">${ico(K.icon)}
+      <span><b>${kn}${badge}</b><small>${esc(info)}</small></span></button>${editable?`<button class="place-edit press" type="button" data-pick="${k}" aria-label="${tr('Endre {name}',{name:kn})}">${ico('edit')}</button>`:''}</span>`;
   }).join('')}</div>`;
 }
 function bindPlaceTiles(root=document){
@@ -160,12 +168,12 @@ function depRowCompact(s,r){
   const m=minUntil(r.exp),late=fmtT(r.exp)!==fmtT(r.aimed)&&r.exp>r.aimed;
   return`<button class="dep compact press" type="button" data-sj="${esc(r.sj||'')}" data-stop="${esc(s.id)}">${lineBadge(r.pub,r.mode,'',false)}
     <span class="dest"><b>${esc(r.dest)}</b></span>
-    <span class="ct">${r.rt?'<i class="live" title="Sanntid"></i>':''}${late?`<s>${fmtT(r.aimed)}</s>`:''}<b class="${late?'late':''}">${fmtT(r.exp)}</b><small>${m<60?`${m} min`:''}</small></span></button>`;
+    <span class="ct">${r.rt?liveDot():''}${late?`<s>${fmtT(r.aimed)}</s>`:''}<b class="${late?'late':''}">${fmtT(r.exp)}</b><small>${m<60?`${m} min`:''}</small></span></button>`;
 }
 function miniRow(s,r){
   const m=minUntil(r.exp);
-  const t=m<=0?'<span class="m now">nå</span>':m<60?`<span class="m">${r.rt?'<i class="live"></i>':''}${m}<small>min</small></span>`:`<span class="m">${fmtT(r.exp)}</span>`;
-  return`<div class="mini">${lineBadge(r.pub,r.mode,'',false)}<span class="d">${esc(r.dest)}</span>${t}</div>`;
+  const when=m<=0?`<span class="m now">${tr('nå')}</span>`:m<60?`<span class="m">${r.rt?liveDot():''}${m}<small>min</small></span>`:`<span class="m">${fmtT(r.exp)}</span>`;
+  return`<div class="mini">${lineBadge(r.pub,r.mode,'',false)}<span class="d">${esc(r.dest)}</span>${when}</div>`;
 }
 const upcoming=id=>(state.deps.get(id)?.rows||[]).filter(r=>r.exp>Date.now()-30000);
 // Holdeplasskort på Hjem: samme tidslinje som på holdeplassen, i liten utgave (to retninger).
@@ -173,7 +181,7 @@ function stopCard(s,i=0){
   const rows=upcoming(s.id),d=distTo(s),fav=favs.some(f=>f.id===s.id),entry=state.deps.get(s.id);
   let body;
   if(!entry)body='<div class="mini"><span class="skel" style="width:32px;height:22px"></span><span class="skel" style="width:70%"></span><span class="skel" style="width:36px"></span></div>';
-  else if(!rows.length)body='<div class="mini"><span class="d" style="grid-column:1/-1;color:var(--ink-3)">Ingen avganger den neste timen</span></div>';
+  else if(!rows.length)body=`<div class="mini"><span class="d" style="grid-column:1/-1;color:var(--ink-3)">${tr('Ingen avganger den neste timen')}</span></div>`;
   else body=stopTimeline({...s,stale:entry.stale},rows,{compact:true}).html||rows.slice(0,2).map(r=>miniRow(s,r)).join('');
   return`<button class="stop-card" type="button" data-stop="${esc(s.id)}" style="--i:${i}"><div class="top"><b>${esc(s.name)}</b>
     <span class="dist">${fav?ico('star','fav'):''}${d!=null?`${fmtDist(d)} · ${walkMin(d)} min`:''}</span></div><div class="sc-body">${body}</div></button>`;

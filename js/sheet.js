@@ -5,7 +5,8 @@
    ARKET – tre høyder, dras med fingeren, reagerer på fart
    ===================================================================== */
 const sheet=$('#sheet'),sheetScroll=$('#sheetScroll');
-const sheetUI={snap:'half',visible:280,snaps:['peek','half','full']};
+// onFull: arket går helt opp eller ned igjen (kartet skjules eller vises). Settes i main.js.
+const sheetUI={snap:'half',visible:280,snaps:['peek','half','full'],full:false,onFull:null};
 function snapPx(name){
   const H=sheet.offsetHeight;
   if(name==='full')return H;
@@ -17,9 +18,10 @@ function setVisible(px,animate=true){
   sheet.classList.toggle('dragging',!animate);
   document.body.classList.toggle('sheet-dragging',!animate);
   document.documentElement.style.setProperty('--sheet-visible',px+'px');
-  const H=sheet.offsetHeight;
-  sheet.classList.toggle('full',px>=H-2);
-  document.body.classList.toggle('sheet-full',px>=H-2);
+  const H=sheet.offsetHeight,full=px>=H-2;
+  sheet.classList.toggle('full',full);
+  document.body.classList.toggle('sheet-full',full);
+  if(full!==sheetUI.full){sheetUI.full=full;sheetUI.onFull?.(full);}
   document.body.classList.toggle('sheet-tall',px>innerHeight*.62);
   // Kartet dempes gradvis når arket dras fra halvt til helt opp, så fokuset flyttes til innholdet.
   const half=Math.round(Math.min(H,innerHeight*.5)),f=wide.matches?0:Math.max(0,Math.min(1,(px-half)/Math.max(1,H-half)));
@@ -34,7 +36,7 @@ function snapTo(name,animate=true){
 let drag=null,suppressClick=false;
 sheet.addEventListener('pointerdown',e=>{
   if(wide.matches||e.button>0)return;
-  if(e.target.closest('input,select,textarea,.seg,.filters,.filter'))return;
+  if(e.target.closest('input,select,textarea,.seg,.filters,.filter,.opts'))return;
   const inHead=!!e.target.closest('.sheet-handle,.sheet-head');
   if(sheet.classList.contains('full')&&!inHead)return; // fullt ark: innholdet ruller
   drag={y:e.clientY,t:performance.now(),start:sheetUI.visible,moved:false,id:e.pointerId,last:e.clientY,lt:performance.now(),v:0};
@@ -121,6 +123,7 @@ const router={
     if(dir&&dir!=='init')requestAnimationFrame(()=>{const h=$('#sheetHead .head-title');if(h){h.tabIndex=-1;h.focus({preventScroll:true});}});
     renderStopsLayer();renderVehicleLayer();
     if(name==='home'||name==='stop')setTimeout(()=>{refreshVehicles(true);loadEstVehicles(true);loadViewDeps();},300);
+    this.onShow?.();
   },
   render(dir='fwd'){
     const p=pages[this.cur.name];
@@ -162,4 +165,4 @@ addEventListener('popstate',()=>{
   if(h)heroSwap(run,h.from,h.to);else run();
 });
 addEventListener('keydown',e=>{if(e.key==='Escape'&&!e.target.closest?.('input'))router.back();});
-const backBtn='<button class="icon-btn back press" type="button" aria-label="Tilbake">'+ico('back')+'</button>';
+const backBtn=()=>`<button class="icon-btn back press" type="button" aria-label="${tr('Tilbake')}">${ico('back')}</button>`;

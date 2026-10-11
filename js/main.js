@@ -18,7 +18,20 @@ function refreshAll(){
   loadAlerts();
 }
 function refreshNow(){loadAlerts();loadDeps(true);refreshVehicles(true);loadEstVehicles(true);}
-['pointerdown','keydown','wheel'].forEach(t=>addEventListener(t,()=>{const wasIdle=isIdle();lastInput=Date.now();if(wasIdle)refreshNow();},{passive:true,capture:true}));
+// I sparemodus står pulsene stille: en animasjon som aldri slutter, holder skjermen i arbeid hele tiden.
+const setIdle=on=>document.body.classList.toggle('idle',on);
+['pointerdown','keydown','wheel'].forEach(t=>addEventListener(t,()=>{const wasIdle=isIdle();lastInput=Date.now();if(wasIdle){setIdle(false);refreshNow();}},{passive:true,capture:true}));
+setInterval(()=>setIdle(isIdle()),15000);
+
+/* ---------- Kartet hviler når arket dekker det ----------
+   Med arket helt oppe (mobil) ser du ikke kartet: kjøretøy, beregnede posisjoner og avgangskort
+   oppdateres ikke, og pulsene på kartet står stille. Når arket går ned, hentes det som er gammelt. */
+function setMapCovered(){
+  const on=sheetUI.full&&!wide.matches,was=mapCovered();
+  document.body.classList.toggle('map-covered',on);
+  if(was&&!on){refreshVehicles();loadEstVehicles();tickEst();loadViewDeps();if(cardMode)renderStopsLayer();}
+}
+sheetUI.onFull=()=>{setMapCovered();ptrArm();};
 
 every(REFRESH_MS,()=>{
   const n=router.cur.name;
@@ -26,6 +39,8 @@ every(REFRESH_MS,()=>{
   if(n==='stop'){const id=router.cur.params.id;loadStopDeps(id,true).then(()=>{if(router.cur.name==='stop'&&router.cur.params.id===id)router.refresh();});}
 });
 every(15000,()=>refreshVehicles());
+// Beregnede kjøretøy glir langs linjen (hvert 0,7 sek; i sparemodus hvert 2,1 sek).
+every(700,tickEst);
 every(30000,()=>loadEstVehicles());
 // Avgangskortene på kartet får nye tider hvert 30. sek; minuttene telles ned lokalt hvert 20. sek.
 every(30000,()=>loadViewDeps());
@@ -33,7 +48,7 @@ every(30000,()=>{if(router.cur.name==='results')loadTripCalls();});
 every(180000,()=>loadAlerts());
 every(60000,()=>{if(router.cur.name==='home')loadShortcuts();});
 every(20000,()=>{if(['home','stop','results','journey'].includes(router.cur.name))router.refresh();},{eco:false});
-every(20000,()=>{if(mapLoaded&&map.getZoom()>=CARD_ZOOM-0.5)renderStopsLayer();},{eco:false});
+every(20000,()=>{if(mapLoaded&&!mapCovered()&&map.getZoom()>=CARD_ZOOM-0.5)renderStopsLayer();},{eco:false});
 // Nedtellingsringene tømmes jevnt: hvert sekund får ringer med kjent tidspunkt ny fyllgrad.
 // Live-boksen har sin egen oppdatering i live.js.
 function tickRings(){
@@ -54,25 +69,53 @@ function ptrShow(px,state){
   ptr.el.className='ptr'+(state?' '+state:'');
 }
 async function refreshHome(){
-  if(ptr.busy)return;ptr.busy=true;buzz(10);
+  if(ptr.busy)return;ptr.busy=true;ptrArm();buzz(10);
   ptrShow(46,'busy');
   try{await Promise.all([loadDeps(true),loadAlerts(),loadShortcuts(true)]);}catch(e){report('oppdater Hjem',e);}
-  ptr.busy=false;ptrShow(0,'');
+  ptr.busy=false;ptrShow(0,'');ptrArm();
 }
-sheetScroll.addEventListener('touchstart',e=>{
-  if(ptr.busy||router.cur.name!=='home'||!sheet.classList.contains('full')||sheetScroll.scrollTop>0)return;
-  ptr.y0=e.touches[0].clientY;ptr.pull=0;
-},{passive:true});
-sheetScroll.addEventListener('touchmove',e=>{
+// Lytteren som kan stoppe rullingen (touchmove med preventDefault), er bare på når dra-for-oppdatering
+// faktisk kan starte: Hjem, fullt ark og listen helt øverst. Ellers ruller listen uten å vente på skriptet.
+const ptrCan=()=>!ptr.busy&&router.cur.name==='home'&&sheet.classList.contains('full')&&sheetScroll.scrollTop<=0;
+function ptrMove(e){
   if(ptr.y0==null)return;
   const dy=e.touches[0].clientY-ptr.y0;
   if(dy<=0||sheetScroll.scrollTop>0){ptr.y0=null;ptrShow(0,'');return;}
   e.preventDefault();ptr.pull=Math.min(PTR_MAX,dy*.5);ptrShow(ptr.pull,'pulling');
-},{passive:false});
-sheetScroll.addEventListener('touchend',()=>{
+}
+let ptrArmed=false;
+function ptrArm(){
+  const on=ptrCan();if(on===ptrArmed)return;ptrArmed=on;
+  if(on)sheetScroll.addEventListener('touchmove',ptrMove,{passive:false});
+  else sheetScroll.removeEventListener('touchmove',ptrMove,{passive:false});
+}
+sheetScroll.addEventListener('scroll',ptrArm,{passive:true});
+router.onShow=ptrArm;
+sheetScroll.addEventListener('touchstart',e=>{
+  if(!ptrCan())return;
+  ptr.y0=e.touches[0].clientY;ptr.pull=0;
+},{passive:true});
+const ptrEnd=()=>{
   if(ptr.y0==null)return;ptr.y0=null;
   if(ptr.pull>=PTR_GO)refreshHome();else ptrShow(0,'');
-});
+};
+sheetScroll.addEventListener('touchend',ptrEnd);
+sheetScroll.addEventListener('touchcancel',ptrEnd);
+
+/* ---------- Språkbytte ----------
+   Uten omstart: fast tekst, kartets egne tekster, markørene, siden du står på, avgangskortene på
+   kartet (språket er med i nøkkelen) og trafikkmeldingene, som hentes på nytt på valgt språk. */
+function applyLang(){
+  setLang(resolveLang());document.documentElement.lang=I18N.lang;
+  translateStatic();
+  if(map._locale)Object.assign(map._locale,mapUiStrings()); // MapLibre har ikke et offentlig API for å bytte språk
+  map.getCanvas()?.setAttribute('aria-label',tr('Kart'));
+  if(meMarker._map)nameMarker(meMarker,tr('Din posisjon'));
+  $('#layerBtn').setAttribute('aria-label',isSat()?tr('Vis kart'):tr('Vis satellitt'));
+  if(!$('#netChip').hidden)setNetworkState(false,navigator.onLine?tr('Entur svarer ikke'):tr('Frakoblet'));
+  shortcuts.clear();loadShortcuts(true);loadAlerts();
+  router.render(null);renderStopsLayer();
+}
 
 /* ---------- Velkomst og oppstart ---------- */
 function hideOnboard(){
@@ -89,7 +132,7 @@ router.show('home',{},'init'); // første visning: kortene kommer etter hverandr
 const onboarded=(()=>{try{return!!localStorage.getItem('reisOnboarded');}catch(e){return true;}})();
 if(onboarded)startGeo();else $('#onboard').hidden=false;
 loadAlerts();
-wide.addEventListener('change',()=>snapTo(sheetUI.snap,false));
+wide.addEventListener('change',()=>{snapTo(sheetUI.snap,false);setMapCovered();});
 const hideSplash=()=>$('#splash').classList.add('hide');
 addEventListener('load',()=>setTimeout(hideSplash,reduceMotion.matches?0:850));
 setTimeout(hideSplash,2500);
