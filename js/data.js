@@ -46,7 +46,7 @@ const ageText=t=>{const m=Math.round((Date.now()-t)/60000);return tr('data fra k
 const homeSubText=()=>{
   const stale=state.nearby.map(s=>state.deps.get(s.id)).find(e=>e?.stale&&e.t);
   if(stale)return`${navigator.onLine?tr('Får ikke kontakt'):tr('Frakoblet')} · ${ageText(stale.t)}`;
-  return`${state.pos?`${tr('Rundt deg')}${state.acc?` · ±${state.acc} m`:''}`:state.nearbyAt?tr('Rundt kartsenteret'):tr('Henter posisjon…')}${state.updated?tr(' · oppdatert {t}',{t:fmtT(state.updated)}):''}`;
+  return`${state.pos?`${tr('Rundt deg')}${state.acc>50?` · ±${state.acc} m`:''}`:state.nearbyAt?tr('Rundt kartsenteret'):tr('Henter posisjon…')}${state.updated?tr(' · oppdatert {t}',{t:fmtT(state.updated)}):''}`;
 };
 function requestGeoOnce(){
   if(!('geolocation' in navigator)){toast(tr('Enheten støtter ikke posisjon.'));return;}

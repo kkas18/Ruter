@@ -220,15 +220,16 @@ const AP_N=8;
 function approachHtml(l){
   const entry=tripCalls.get(l.serviceJourney?.id),place=esc(placeName(l.fromPlace,''));
   const plain=`<span class="ap-name">${place}</span>`,planned=`<span class="ap-name">${place} <time>${fmtT(l.expectedStartTime)}</time></span>`;
-  if(!entry)return`<div class="ap">${planned}</div>`;
-  const c=entry.calls,board=nearestCallIdx(c,l.fromPlace?.quay,l.fromPlace?.name),e=callPos(c);
-  if(board<0||!e||e.state==='start'||Date.now()>=depT(c[board])||board-e.at>AP_N*2)return`<div class="ap">${planned}</div>`;
+  const alone=`<div class="ap">${ico('stop','ap-ico')}${planned}</div>`;
+  if(!entry)return alone;
+  const c=entry.calls,board=nearestCallIdx(c,l.fromPlace?.quay,l.fromPlace?.name,ts(l.expectedStartTime)),e=callPos(c);
+  if(board<0||!e||e.state==='start'||Date.now()>=depT(c[board])||board-e.at>AP_N*2)return alone;
   const pos=e.state==='start'?-1:e.at+e.f,away=Math.max(0,board-pos),start=board-AP_N;
   const pct=Math.max(0,Math.min(100,(pos-start)/AP_N*100)),far=pos<start;
   const n=Math.ceil(away),code=esc(l.line?.publicCode||modeOf(l.mode).n),name=`${modeOf(l.mode).n} ${code}`;
   const label=e.state==='start'?tr('{name} har ikke startet ennå',{name}):n<=0?tr('{name} er ved holdeplassen',{name}):tn(n,'{name} er {n} stopp unna','{name} er {n} stopp unna',{name});
   const dots=Array.from({length:AP_N},(_,i)=>`<i style="left:${i/AP_N*100}%"${start+i<=pos?' class="on"':''}></i>`).join('');
-  return`<div class="ap" role="img" aria-label="${esc(label)}" title="${esc(label)}"><span class="ap-track" style="--c:${modeOf(l.mode).c}">
+  return`<div class="ap" role="img" aria-label="${esc(label)}" title="${esc(label)}"><span class="ap-track" style="${modeStyle(l.mode)}">
     <span class="ap-rail"><i style="width:${pct}%"></i></span>${dots}<i class="ap-end"></i>
     <span class="ap-veh${far?' far':''}" style="left:${pct}%">${code}</span></span>${plain}</div>`;
 }
@@ -240,7 +241,8 @@ function tripCard(p,i,isFastest){
     const w=Math.max(.06,(l.duration||0)/total),d=`animation-delay:${i*50+j*45}ms`;
     if(l.mode==='foot')return`<span class="seg walk" style="flex:${w} 1 0;${d}" title="${tr('Gå {n} min',{n:Math.round(l.duration/60)})}">${ico('walk')}<b>${Math.round(l.duration/60)}</b></span>`;
     const md=modeOf(l.mode),code=l.line?.publicCode||md.n,a=alertFor(code);
-    return`<span class="seg ride${a?` has-alert ${a.sev}`:''}" style="flex:${w} 1 0;--c:${md.c};${d}" title="${md.n} ${esc(code)}${a?` – ${esc(a.summary)}`:''}"><b>${esc(code)}</b></span>`;
+    // Piktogrammet får plass når etappen er lang nok i stripen.
+    return`<span class="seg ride${a?` has-alert ${a.sev}`:''}" style="flex:${w} 1 0;${modeStyle(l.mode)};${d}" title="${md.n} ${esc(code)}${a?` – ${esc(a.summary)}`:''}">${w>=.22?modeIcon(l.mode):''}<b>${esc(code)}</b></span>`;
   }).join('')||`<span class="seg walk" style="flex:1">${ico('walk')}<b>${Math.round(p.duration/60)}</b></span>`;
   const leave=minUntil(p.expectedStartTime);
   return`<button class="trip${i===state.tripIdx?' sel':''}" type="button" data-p="${i}" style="animation-delay:${i*50}ms">
@@ -310,7 +312,7 @@ pages.trip={
       if(walk)what=`<span class="wk">${ico('walk')}<b>${Math.max(1,Math.round(l.duration/60))}</b> min</span><small>${fmtDist(l.distance||0)}</small>`;
       else{
         const code=l.line?.publicCode||md.n,toward=l.fromEstimatedCall?.destinationDisplay?.frontText,q=l.fromPlace?.quay?.publicCode;
-        what=`${lineBadge(code,l.mode,'badge-l')}${toward?`<span class="to">${ico('arrow')}<span>${esc(toward)}</span></span>`:''}
+        what=`${lineBadge(code,l.mode,'badge-l',true,true)}${toward?`<span class="to">${ico('arrow')}<span>${esc(toward)}</span></span>`:''}
           <span class="leg-tags">${q?quayChip(l.mode,q):''}${l.realtime?liveDot():''}${occHtml(l.fromEstimatedCall?.occupancyStatus)}</span>`;
         const al=alertFor(code,{all:true});
         if(al)extra=`<button class="leg-alert press${al.sev==='info'?' info':''}" type="button" data-alerts>${ico(al.sev==='info'?'info':'alert')}<span>${esc(al.summary)}</span></button>`;
@@ -320,7 +322,7 @@ pages.trip={
       const details=walk||!p.stopDetailsAvailable||!stops.length?'':`<details><summary><span class="sdots">${'<i></i>'.repeat(Math.min(stops.length,10))}</span>${tn(stops.length,'{n} stopp','{n} stopp')}</summary>
         <ol>${stops.map(c=>`<li><span>${esc(c.quay.name)}</span>${c.expectedArrivalTime?`<time>${fmtT(c.expectedArrivalTime)}</time>`:''}</li>`).join('')}</ol></details>`;
       const done=ts(l.expectedEndTime)<Date.now();
-      return`<div class="leg${walk?' walk':''}${done?' done':''}" data-li="${i}" style="--c:${walk?'var(--ink-3)':md.c}"><time>${fmtT(l.expectedStartTime)}</time>
+      return`<div class="leg${walk?' walk':''}${done?' done':''}" data-li="${i}" style="${walk?'--c:var(--ink-3)':modeStyle(l.mode)}"><time>${fmtT(l.expectedStartTime)}</time>
         <span class="rail"><span class="node"></span>${walk?'':`<span class="rveh" hidden>${esc(l.line?.publicCode||'')}</span>`}</span>
         <div class="body"><div class="place">${place}</div><div class="what">${what}</div>${extra}${details}</div></div>`;
     }).join('');
@@ -363,7 +365,7 @@ pages.stop={
     const modes=[...new Set(rows.map(r=>r.mode))];
     const f=stopFilter.get(id);
     const filters=modes.length>1?`<div class="filters" role="group" aria-label="${tr('Filtrer')}">${['all',...modes].map(m=>
-      `<button class="filter press" type="button" data-m="${m}" ${m!=='all'?`style="--c:${modeOf(m).c}"`:''} aria-pressed="${(f||'all')===m}">${m==='all'?tr('Alle'):`<i></i>${modeOf(m).n}`}</button>`).join('')}</div>`:'';
+      `<button class="filter press" type="button" data-m="${m}" ${m!=='all'?`style="${modeStyle(m)}"`:''} aria-pressed="${(f||'all')===m}">${m==='all'?tr('Alle'):`${modeIcon(m)}${modeOf(m).n}`}</button>`).join('')}</div>`:'';
     const list=rows.filter(r=>!f||r.mode===f),st={...s,stale:entry.stale};
     const al=[...new Set(rows.map(r=>String(r.pub)))].map(c=>alertFor(c)).filter((a,i,arr)=>a&&arr.indexOf(a)===i);
     const alertRow=al.length?`<button class="leg-alert stop-alert press" type="button" data-alerts>${ico('alert')}<span>${esc(al[0].summary)}</span>${al.length>1?`<em>+${al.length-1}</em>`:''}</button>`:'';
@@ -384,7 +386,7 @@ pages.stop={
     $$('#sheetPage [data-alerts]').forEach(b=>b.onclick=()=>{buzz(6);router.go('alerts');});
     $$('#sheetPage .filter').forEach(b=>b.onclick=()=>{buzz(6);stopFilter.set(id,b.dataset.m==='all'?null:b.dataset.m);router.refresh();});
     $$('#sheetPage .dep[data-sj],#sheetPage .tl-dot[data-sj]').forEach(b=>b.onclick=()=>{if(!b.dataset.sj)return;buzz(6);
-      openJourney(b.dataset.sj,id,b.classList.contains('tl-dot')?b:b.querySelector('.badge'));});
+      openJourney(b.dataset.sj,id,b.classList.contains('tl-dot')?b:b.querySelector('.badge'),+b.dataset.at);});
   },
   // Oppdatering på stedet: prikkene glir mot «nå» i stedet for å tegnes på nytt.
   update(params){
@@ -417,11 +419,14 @@ pages.stop={
    holdeplass – den du trykket på, eller stoppet på ruten nærmest deg. */
 const jv={sj:null,job:null,stopIdx:-1,timer:0,fitted:false,loading:false,error:null,hint:null};
 // Åpne en tur fra en avgang ved en holdeplass, med linjeskiltet som følger med opp i overskriften.
-function openJourney(sj,stopId,heroEl){
+// at: planlagt tid for avgangen du trykket på. En ringlinje har to avganger med samme tur, og turen
+// åpnes på den passeringen du valgte.
+function openJourney(sj,stopId,heroEl,at=NaN){
   if(!sj)return;
-  const r=(state.deps.get(stopId)?.rows||[]).find(x=>x.sj===sj);
+  const rows=state.deps.get(stopId)?.rows||[],r=rows.find(x=>x.sj===sj&&x.aimed===at)||rows.find(x=>x.sj===sj);
   jv.hint=r?{sj,code:r.pub,mode:r.mode,dest:r.dest}:null;
-  router.go('journey',r?.date?{sj,stop:stopId,date:r.date}:{sj,stop:stopId},{hero:heroEl});
+  const t=r?r.aimed:at;
+  router.go('journey',{sj,stop:stopId,...(r?.date?{date:r.date}:{}),...(Number.isFinite(t)?{at:t}:{})},{hero:heroEl});
 }
 function jvTrip(job,stopIdx){ // pseudo-reise så live-motoren (status, kjøretøy) kan gjenbrukes
   const c=job.calls,b=c[stopIdx]||c[0],last=c[c.length-1];
@@ -433,7 +438,7 @@ function jvTrip(job,stopIdx){ // pseudo-reise så live-motoren (status, kjøret�
 const Q_SJ_FULL=`query($id:String!,$date:Date){serviceJourney(id:$id){id line{publicCode transportMode} pointsOnLink{points}
   estimatedCalls(date:$date){realtime aimedArrivalTime expectedArrivalTime expectedDepartureTime actualArrivalTime actualDepartureTime aimedDepartureTime
     destinationDisplay{frontText} quay{id name latitude longitude publicCode stopPlace{id parent{id}}}}}}`;
-async function loadJourney(sjId,stopId,date=null){
+async function loadJourney(sjId,stopId,date=null,at=NaN){
   jv.loading=true;jv.error=null;
   try{
     const d=await sjQuery(Q_SJ_FULL,sjId,date);const sj=d.serviceJourney;if(!sj)throw new Error(tr('Fant ikke turen'));
@@ -444,9 +449,12 @@ async function loadJourney(sjId,stopId,date=null){
     const job={sj:sjId,code:sj.line?.publicCode||'',mode:sj.line?.transportMode||'bus',calls,pts,cum,stopS:projectStops(pts,cum,calls),
       dest:calls[0]?.destinationDisplay?.frontText||calls[calls.length-1]?.quay?.name||''};
     // Knutepunkt (f.eks. Jernbanetorget) har plattformer under et barnestoppested: sjekk også forelder, så navn.
-    const stopName=stopId&&findStop(stopId)?.name;
-    let idx=stopId?calls.findIndex(c=>c.quay?.stopPlace?.id===stopId||c.quay?.stopPlace?.parent?.id===stopId):-1;
-    if(idx<0&&stopName)idx=calls.findIndex(c=>c.quay?.name===stopName);
+    // Ringlinjer passerer samme holdeplass to ganger: velg passeringen nærmest avgangstiden du trykket på.
+    const stopName=stopId&&findStop(stopId)?.name,closest=m=>m.length>1&&Number.isFinite(at)?
+      m.reduce((a,b)=>Math.abs(ts(calls[b].aimedDepartureTime||calls[b].aimedArrivalTime)-at)<Math.abs(ts(calls[a].aimedDepartureTime||calls[a].aimedArrivalTime)-at)?b:a):(m[0]??-1);
+    const where=f=>calls.map((c,i)=>f(c)?i:-1).filter(i=>i>=0);
+    let idx=stopId?closest(where(c=>c.quay?.stopPlace?.id===stopId||c.quay?.stopPlace?.parent?.id===stopId)):-1;
+    if(idx<0&&stopName)idx=closest(where(c=>c.quay?.name===stopName));
     if(idx<0&&state.pos){ // nærmeste stopp på ruten fra der du står (innen 1,5 km), og som ikke er passert
       const e=estimate(job);let best=-1,bd=1500;
       calls.forEach((c,i)=>{if(!c.quay||(e&&i<=e.at&&e.state!=='start'))return;const dd=geoDist(state.pos,[c.quay.latitude,c.quay.longitude]);if(dd<bd){bd=dd;best=i;}});
@@ -488,11 +496,11 @@ pages.journey={
     const j=jv.job,h=jv.hint;
     // Før turen er hentet: linjeskilt og retning fra avgangen du trykket på, så overgangen har et mål.
     if(!j&&h&&h.sj===params.sj){const md=modeOf(h.mode);
-      return`${backBtn()}<div class="titles jv-title"><span class="badge badge-l" style="--c:${md.c}">${esc(h.code||md.n)}</span>
+      return`${backBtn()}<div class="titles jv-title">${lineBadge(h.code||md.n,h.mode,'badge-l',false,true)}
         <div><div class="head-title">${esc(h.dest)}</div><div class="head-sub">${tr('Henter turen…')}</div></div></div>`;}
     if(!j)return`${backBtn()}<div class="titles"><div class="head-title">${tr('Henter turen…')}</div></div>`;
     const md=modeOf(j.mode);
-    return`${backBtn()}<div class="titles jv-title"><span class="badge badge-l" style="--c:${md.c}">${esc(j.code||md.n)}</span>
+    return`${backBtn()}<div class="titles jv-title">${lineBadge(j.code||md.n,j.mode,'badge-l',false,true)}
       <div><div class="head-title">${esc(j.dest)}</div><div class="head-sub">${md.n} ${esc(j.code)} · ${tn(j.calls.length,'{n} stopp','{n} stopp')}</div></div></div>
       <button class="icon-btn press" id="jvFit" type="button" aria-label="${tr('Vis hele turen')}">${ico('expand')}</button>`;
   },
@@ -509,9 +517,9 @@ pages.journey={
       const veh=e&&((e.state==='moving'&&i===e.at)||(e.state==='start'&&i===0&&false));
       return`<div class="jv-stop${passed?' passed':''}${mine?' mine':''}${here?' here':''}" data-i="${i}">
         <time>${fmtT(t)}${!passed&&late>0?`<small class="late">+${late}</small>`:''}</time>
-        <span class="jv-rail" style="--c:${modeOf(j.mode).c}"><i></i>${here?`<em class="jv-veh" style="--c:${modeOf(j.mode).c}">${esc(j.code)}</em>`:''}</span>
+        <span class="jv-rail" style="${modeStyle(j.mode)}"><i></i>${here?`<em class="jv-veh">${esc(j.code)}</em>`:''}</span>
         <span class="jv-name">${esc(c.quay?.name||tr('Stopp'))}${mine?`<small>${tr('Din holdeplass')}</small>`:''}</span></div>
-        ${veh?`<div class="jv-between"><span></span><span class="jv-rail" style="--c:${modeOf(j.mode).c}"><i></i><em class="jv-veh moving" style="--c:${modeOf(j.mode).c}">${esc(j.code)}</em></span><span class="jv-note">${tr('Underveis')}</span></div>`:''}`;
+        ${veh?`<div class="jv-between"><span></span><span class="jv-rail" style="${modeStyle(j.mode)}"><i></i><em class="jv-veh moving">${esc(j.code)}</em></span><span class="jv-note">${tr('Underveis')}</span></div>`:''}`;
     }).join('');
     return`<div class="jv-sticky"><div class="live-status" id="liveStatus" hidden></div>${walk}</div><div class="jv-list">${rows}</div>
       <p class="note">${e&&e.state==='done'?tr('Turen er fullført.'):tr('Posisjonen er GPS der operatøren deler den, ellers beregnet fra sanntid.')}</p>`;
@@ -524,9 +532,9 @@ pages.journey={
     // Hold «her er kjøretøyet» i listen i synsfeltet første gang.
     if(!jv.scrolled){const h=$('#sheetPage .jv-stop.here,#sheetPage .jv-between');if(h){jv.scrolled=true;setTimeout(()=>h.scrollIntoView({block:'center'}),60);}}
   },
-  async enter({sj,stop,date}){
+  async enter({sj,stop,date,at}){
     fcClose();clearRoute();clearPins();setData('vehicles',EMPTY);
-    if(jv.sj!==sj||!jv.job){jv.sj=sj;jv.job=null;jv.scrolled=false;jv.loading=true;router.render(null);await loadJourney(sj,stop,date);}
+    if(jv.sj!==sj||!jv.job){jv.sj=sj;jv.job=null;jv.scrolled=false;jv.loading=true;router.render(null);await loadJourney(sj,stop,date,at);}
     if(router.cur.name!=='journey'||jv.sj!==sj)return;
     router.render(null);
     if(!jv.job)return;
@@ -549,11 +557,15 @@ pages.alerts={
     const fmtWhen=ts=>{const d=new Date(ts),today=d.toDateString()===new Date().toDateString(),at=tr('kl. {t}',{t:fmtT(d)});
       return today?at:`${d.toLocaleDateString(locale(),{day:'numeric',month:'short'})} ${at}`;};
     const mine=myLines();
+    // Linjene rundt deg står i linjens farge, når vi vet transportmiddelet fra avgangene vi har hentet.
+    const modeByLine=new Map();state.deps.forEach(e=>(e.rows||[]).forEach(r=>modeByLine.set(String(r.pub),r.mode)));
+    const badge=l=>mine.has(l)&&modeByLine.has(l)?lineBadge(l,modeByLine.get(l),'',false):`<span class="badge ${mine.has(l)?'neutral':'dim'}">${esc(l)}</span>`;
     const item=(a,i)=>{
       const t=a.start&&a.end?tr('Fra {from} til {to}',{from:fmtWhen(a.start),to:fmtWhen(a.end)}):a.start?tr('Fra {from}',{from:fmtWhen(a.start)}):a.end?tr('Gjelder til {to}',{to:fmtWhen(a.end)}):'';
-      const ls=(a.lines||[]).slice(0,6).map(l=>`<span class="badge${mine.has(l)?'':' dim'}">${esc(l)}</span>`).join('');
+      const ls=(a.lines||[]).slice(0,6).map(badge).join(''),desc=a.desc&&a.desc!==a.summary?a.desc:'',long=desc.length>140;
       return`<article class="alert" style="animation-delay:${Math.min(i,8)*30}ms"><span class="sev ${a.sev}" aria-hidden="true"></span><div>
-        ${ls?`<div class="alert-lines">${ls}</div>`:''}<h4>${esc(a.summary)}</h4>${a.desc&&a.desc!==a.summary?`<p>${esc(a.desc)}</p>`:''}${t?`<time>${t}</time>`:''}</div></article>`;};
+        ${ls?`<div class="alert-lines">${ls}</div>`:''}<h4>${esc(a.summary)}</h4>${desc?`<p id="ad${i}"${long?' class="clamp"':''}>${esc(desc)}</p>`:''}
+        ${long?`<button class="more press" type="button" aria-expanded="false" aria-controls="ad${i}">${tr('Vis mer')}</button>`:''}${t?`<time>${t}</time>`:''}</div></article>`;};
     // Avvik som rammer linjene rundt deg først, så andre avvik, og planlagte endringer til slutt.
     const now=state.alerts.filter(a=>a.sev!=='info'),planned=state.alerts.filter(a=>a.sev==='info');
     const rel=now.filter(a=>(a.lines||[]).some(l=>mine.has(l))),rest=now.filter(a=>!rel.includes(a));
@@ -561,6 +573,11 @@ pages.alerts={
     let i=0;const sec=(label,list,open)=>!list.length?'':open?`<div class="label">${label}</div>${list.map(a=>item(a,i++)).join('')}`:
       `<details class="alert-sec"><summary class="label">${label}<em>${list.length}</em>${ico('chev')}</summary>${list.map(a=>item(a,i++)).join('')}</details>`;
     return sec(tr('Rundt deg'),rel,true)+sec(rel.length?tr('Andre avvik i Ruter-området'):tr('Avvik nå'),rest,!rel.length)+sec(tr('Planlagte endringer'),planned,false);
+  },
+  bind(){
+    $$('#sheetPage .alert .more').forEach(b=>b.onclick=()=>{buzz(6);
+      const open=$('#'+b.getAttribute('aria-controls')).classList.toggle('open');
+      b.setAttribute('aria-expanded',String(open));b.textContent=open?tr('Vis mindre'):tr('Vis mer');});
   }
 };
 

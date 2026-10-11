@@ -120,16 +120,16 @@ function updateStopCallout(id){
   else if(!first)body=`<p class="fc-empty">${tr('Ingen avganger den neste timen')}</p>`;
   else{
     const tags=[first.quay?quayChip(first.mode,first.quay):'',occHtml(first.occ)].join('');
-    body=`<button class="fc-row fc-first" type="button" style="--i:0" data-sj="${esc(first.sj||'')}">${lineBadge(first.pub,first.mode,'badge-l')}
+    body=`<button class="fc-row fc-first" type="button" style="--i:0" data-sj="${esc(first.sj||'')}" data-at="${first.aimed}">${lineBadge(first.pub,first.mode,'badge-l')}
         <span class="fc-dest"><b>${esc(first.dest)}</b>${tags?`<small class="fc-tags">${tags}</small>`:''}</span>
         ${fcMinutes(`${id}|${first.pub}|${first.dest}|${first.aimed}`,first,true)}</button>`+
-      rest.map((r,i)=>`<button class="fc-row" type="button" style="--i:${i+1}" data-sj="${esc(r.sj||'')}">${lineBadge(r.pub,r.mode)}
+      rest.map((r,i)=>`<button class="fc-row" type="button" style="--i:${i+1}" data-sj="${esc(r.sj||'')}" data-at="${r.aimed}">${lineBadge(r.pub,r.mode)}
         <span class="fc-dest">${esc(r.dest)}</span>${fcMinutes(`${id}|${r.pub}|${r.dest}|${r.aimed}`,r,false)}</button>`).join('');
   }
   fc$.el?.classList.toggle('compact',compact);
   fcOpen({key:'stop:'+id,lngLat:()=>[s.lon,s.lat],onClose:()=>router.back(),
     bind:el=>el.querySelectorAll('.fc-row').forEach(b=>b.addEventListener('click',()=>{buzz(6);
-      if(b.dataset.sj)openJourney(b.dataset.sj,id,b.querySelector('.badge'));else snapTo('half');}))},
+      if(b.dataset.sj)openJourney(b.dataset.sj,id,b.querySelector('.badge'),+b.dataset.at);else snapTo('half');}))},
     `<header class="fc-head"><span class="fc-grip" aria-hidden="true"></span><div class="fc-title"><b>${esc(s.name)}</b>
       ${anyRt?liveDot():''}</div>
       <button class="fc-close" type="button" aria-label="${tr('Lukk')}">${ico('x')}</button></header><div class="fc-body">${body}</div>`,
@@ -153,7 +153,7 @@ function showVehicleCard(p){
       next=`<div class="fc-meta">${tr('Neste stopp')} <b>${m<=0?tr('nå'):tr('om {n} min',{n:m})}</b></div>`;}}
   fcOpen({key:'veh:'+vid,moving:true,lngLat:()=>vehicleLngLat(vid),onClose:fcClose},
     `<header class="fc-head"><span class="fc-grip" aria-hidden="true"></span><div class="fc-title fc-veh">
-      <span class="badge badge-l" style="--c:${md.c}">${esc(p.line||md.n)}</span><b>${p.dest?esc(p.dest):md.n}</b></div>
+      ${lineBadge(p.line||md.n,p.mode,'badge-l',false,true)}<b>${p.dest?esc(p.dest):md.n}</b></div>
       <button class="fc-close" type="button" aria-label="${tr('Lukk')}">${ico('x')}</button></header>
      <div class="fc-body"><div class="fc-meta">${md.n}${p.line?' '+esc(p.line):''} · ${p.est?`<span class="fc-src est">${tr('Beregnet fra sanntid')}</span>`:`<span class="fc-src"><i class="live" aria-hidden="true"></i>${tr('GPS-posisjon')}</span>`}</div>${next}</div>`,
     {label:`${md.n} ${p.line||''}`});

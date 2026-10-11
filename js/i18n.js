@@ -255,6 +255,8 @@ const EN={
   'Turen er fullført.':'The trip has finished.',
   'Posisjonen er GPS der operatøren deler den, ellers beregnet fra sanntid.':'The position is GPS where the operator shares it, otherwise calculated from real-time data.',
   /* Trafikkmeldinger */
+  'Vis mer':'Show more',
+  'Vis mindre':'Show less',
   'Oppdatert kl. {t}':'Updated at {t}',
   'Ingen avvik':'No disruptions',
   'Trafikken går som normalt.':'Services are running normally.',

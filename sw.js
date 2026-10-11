@@ -1,4 +1,4 @@
-const CACHE='reis-v22';
+const CACHE='reis-v23';
 const ASSETS=[
   './','./index.html','./manifest.webmanifest','./css/app.css','./js/mapstyle.js',
   './js/i18n.js','./js/core.js','./js/base.js','./js/map.js','./js/sheet.js','./js/components.js','./js/floatcard.js','./js/pages.js','./js/data.js','./js/live.js','./js/main.js',

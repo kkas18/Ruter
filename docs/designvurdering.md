@@ -351,3 +351,42 @@ Vurderingen etter runde 8 målte strengere, med axe, CPU-profilering og telling 
 ### Fortsatt åpent
 - **Varsel når appen er lukket:** krever en liten push-tjeneste (VAPID og planlagt utsending), og på iPhone at appen er lagt til på hjemskjermen.
 - **Måling på ekte telefoner:** se testplanen.
+
+## Runde 10: visuelt løft
+
+Ny gjennomgang av siste versjon: 17 skjermbilder i lyst og mørkt tema, axe og ende-til-ende-testene. Snittet ble 8,6, mot 8,9 etter runde 9. Appen er ikke blitt dårligere. Denne gangen så jeg nøyere på bildespråket, og der fant jeg svakheter:
+- T-banen var brun-oransje og vanskelig å skille fra bussens røde.
+- Linjeskiltene viste bare et nummer, uten bilde av transportmiddelet.
+- Kartkortene var halvt gjennomsiktige ved startzoomen.
+- Avganger du ikke rekker, hadde stiplet kant og ga uro i tidslinjen.
+- Holdeplassnavnet i reiseforslagene ble kuttet.
+- På lange turer ble sporet en tett perlerad av ringer.
+- Trafikkmeldingene var lange tekster med grå linjeskilt.
+
+I tillegg fant jeg to feil med T-bane 5, som kjører forbi noen stasjoner to ganger på samme tur. Den andre avgangen var skjult, og turen åpnet feil passering.
+
+| Område | Før | Etter | Hvorfor |
+|---|---|---|---|
+| Design | 8,5 | **9** | Ingen kuttet tekst, roligere tidslinje, og lange meldinger er kortet ned med «Vis mer» |
+| Grafikk | 8 | **9,5** | Oslos linjefarger og piktogram for transportmiddelet på skilt, filtre og etapper. Kartkortene er skarpe fra start |
+| Animasjoner | 9 | **9** | Uendret |
+| Appfølelse | 8,5 | **9** | Ringlinjene viser alle avgangene og åpnes på riktig passering, også i live-reisen |
+| Tilgjengelighet | 9 | **9** | axe: 0 brudd i lyst og mørkt tema, på norsk og engelsk. Mørk tekst på oransje gir 5,8:1 (hvit ville gitt 3,1:1) |
+| Ytelse og batteri | 8,5 | **8,5** | Uendret |
+| Kodekvalitet | 8,5 | **8,5** | Nye enhetstester og en ende-til-ende-test for ringlinjer. Testene sjekker også piktogrammet og «Vis mer» |
+| **Snitt** | **8,6** | **8,9** | |
+
+### Gjort i denne runden
+1. **Linjefarger som i Oslo:** buss rød, trikk blå, T-bane oransje, tog lilla og båt grønnblå. Hver farge har sin egen tekstfarge. T-banens lyse oransje har mørk tekst, alle de andre har hvit. Fargene gjelder overalt: skilt, tidslinjer, spor, kart og kjøretøy.
+2. **Piktogrammer:** buss, trikk, T-bane, tog og båt har egne symboler. De står i filtrene på holdeplassen, i store linjeskilt (reisens etapper, turens overskrift og kjøretøykortet) og i fargestripen i reiseforslagene når etappen er lang nok.
+3. **Kartkortene** blir helt synlige nesten med en gang de dukker opp. Før var de halvt gjennomsiktige over et lengre zoomspenn.
+4. **Tidslinjen:** avganger du ikke rekker, er hule og dempede med tynn, hel kant. «+N» ved enden av linjen legger seg over linjen i stedet for å krysse den.
+5. **Reiseforslagene:** holdeplass og planlagt tid («Carl Berners plass 19:34») står med holdeplassikon og kuttes ikke lenger.
+6. **Sporet i live-reisen og på turen:** med mer enn 12 stopp blir stoppene korte streker i stedet for ringer. Står kjøretøyet ved holdeplassen sporet ender i, står navnet bare én gang.
+7. **Trafikkmeldinger:** linjene rundt deg har linjens farge. Forklaringer over 140 tegn vises med to linjer og «Vis mer». Knappen sier fra til skjermlesere om teksten er foldet ut.
+8. **Hjem:** nøyaktigheten («±80 m») står i undertittelen bare når den er dårligere enn ±50 m.
+
+### Funnet underveis
+- **Ringlinjer:** T-bane 5 fra Sognsvann til Vestli passerer ti stasjoner to ganger på samme tur, blant dem Majorstuen, Jernbanetorget og Carl Berners plass. Turen kommer tilbake rundt 26 minutter senere med nytt mål, for eksempel «Ringen via Storo» kl. 15:42 og «Vestli» kl. 16:08. Det ga to feil:
+  - **Den andre avgangen var skjult.** Holdeplassen slo sammen avganger med samme tur, fordi en buss kan stoppe ved to plattformer på samme holdeplass. Dermed forsvant «Vestli» kl. 16:08 helt til toget hadde passert første gang. I opptaket fra Carl Berners plass manglet fem T-bane-avganger den neste timen. Nå slås avganger med samme tur bare sammen når de er under ti minutter fra hverandre.
+  - **Turen åpnet feil passering.** Trykket du på en senere avgang, viste turen tidene og toget for den første passeringen. Det samme gjaldt påstigning og avstigning i live-reisen. Nå åpnes passeringen du trykket på, fra holdeplassen, flytekortet og kartkortet. Live-reisen velger passeringen nærmest tiden i reiseforslaget.

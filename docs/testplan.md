@@ -11,22 +11,24 @@ Automatiske tester dekker kjernelogikken (`npm run check`) og hovedflytene i en 
 - [ ] Andre gang åpner appen rett på kartet, under 2 sekunder.
 
 ## 2. Posisjon og kompass
-- [ ] Den blå prikken står der du står (±10 m). Nøyaktigheten står i undertittelen («±6 m»).
+- [ ] Den blå prikken står der du står (±10 m). Nøyaktigheten står i undertittelen bare når den er dårligere enn ±50 m («±80 m»).
 - [ ] Gå 50 m: prikken følger jevnt og hopper ikke.
 - [ ] Kompasset: kjeglen peker dit telefonen peker. På iPhone må du godta tilgang til bevegelse.
 - [ ] «Min posisjon»-knappen sentrerer og følger. Drar du i kartet, slutter den å følge.
 
 ## 3. Hjem og holdeplass
-- [ ] Hjem viser holdeplassene rundt deg med tidslinje. Avganger du ikke rekker, er stiplet.
+- [ ] Hjem viser holdeplassene rundt deg med tidslinje. Avganger du ikke rekker, er hule og dempede.
+- [ ] Linjefargene: buss rød, trikk blå, T-bane oransje med mørk tekst, tog lilla. Filtrene på holdeplassen har piktogram for transportmiddelet.
 - [ ] Minuttene teller ned (tallet ruller) uten at noe blinker eller hopper.
 - [ ] Trykk på en holdeplass: kartkortet viser neste avgang du **rekker**. Dra arket ned: kortet viser fire avganger.
 - [ ] På et knutepunkt: tidslinjen har opptil seks rader, og resten står i listen («+N til i listen»).
 - [ ] En holdeplass langt unna (mer enn 20 min å gå) har ingen skravering og ingen «Gå nå».
+- [ ] Ringlinje: på en stasjon T-bane 5 passerer to ganger (for eksempel Carl Berners plass) står både «Ringen via Storo» og «Vestli» med samme tog, rundt 26 minutter imellom. Trykk på den senere: turen åpnes på det klokkeslettet, ikke på første passering.
 
 ## 4. Reise
 - [ ] Legg til Hjem fra Hjem-flisen. Flisen viser «Gå om N min» og linjen, og ett trykk åpner reiseforslagene.
 - [ ] Endre og fjern Hjem fra blyanten i søket.
-- [ ] Søk etter et mål. Reiseforslagene har ring («gå om N min»), fargestripe og tilkjøringsspor når bussen er underveis.
+- [ ] Søk etter et mål. Reiseforslagene har ring («gå om N min»), fargestripe med piktogram og tilkjøringsspor når bussen er underveis. Holdeplassnavnet kuttes ikke.
 - [ ] Velg en reise: ringen viser «gå om» → «går om» → «gå av om» etter hvert som du går, venter og sitter på.
 - [ ] Om bord: bussen glir langs skinnen i reiselisten, og «Neste: …» stemmer med virkeligheten (noter avvik i stopp).
 - [ ] «Følg»-knappen: kartet følger bussen jevnt til du drar i kartet.
@@ -67,6 +69,7 @@ Automatiske tester dekker kjernelogikken (`npm run check`) og hovedflytene i en 
 ## 9. Språk
 - [ ] Telefon på engelsk: appen starter på engelsk. Innstillinger → Språk → Norsk bytter med en gang, uten omstart.
 - [ ] På engelsk: trafikkmeldinger på engelsk der Ruter har skrevet dem, ellers på norsk. Klokkeslett med 24 timer.
+- [ ] Trafikkmeldinger: lange forklaringer har «Vis mer» (på engelsk «Show more»), og teksten foldes ut og inn igjen.
 
 ## 10. Når testen er bestått
 Neste steg er «Gå nå»-varsel også når appen er helt lukket. Det krever en liten push-tjeneste på en server, og på iPhone at appen er lagt til på hjemskjermen.

@@ -39,6 +39,7 @@ function trimAlerts(xml,lines,others=12){
   try{
     await flows.home(page);await page.waitForTimeout(3000);
     await flows.openStop(page);await flows.openJourney(page);await page.waitForTimeout(2000);
+    await flows.home(page);await flows.openStop(page);await flows.openRing(page);await page.waitForTimeout(2000);
     await flows.home(page);await flows.search(page,'Storo');await flows.chooseWithKeyboard(page);
     await flows.fewerChanges(page);await flows.openTrip(page);await page.waitForTimeout(2000);
     await flows.home(page);await flows.alerts(page);
