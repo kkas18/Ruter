@@ -36,7 +36,7 @@ function snapTo(name,animate=true){
 let drag=null,suppressClick=false;
 sheet.addEventListener('pointerdown',e=>{
   if(wide.matches||e.button>0)return;
-  if(e.target.closest('input,select,textarea,.seg,.filters,.filter,.opts'))return;
+  if(e.target.closest('input,select,textarea,.segmented,.filters,.filter,.opts'))return;
   const inHead=!!e.target.closest('.sheet-handle,.sheet-head');
   if(sheet.classList.contains('full')&&!inHead)return; // fullt ark: innholdet ruller
   drag={y:e.clientY,t:performance.now(),start:sheetUI.visible,moved:false,id:e.pointerId,last:e.clientY,lt:performance.now(),v:0};

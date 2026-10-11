@@ -47,7 +47,7 @@ function setBasemap(mode){
   document.body.classList.toggle('sat',mode==='sat');
   if(mapLoaded){ReisMapStyle.applyTheme(map,resolveTheme(),mode==='sat');applyOverlayTheme();}
 }
-$('#layerBtn').onclick=()=>{buzz(8);setBasemap(isSat()?'map':'sat');toast(isSat()?tr('Satellitt'):tr('Kart'));};
+$('#layerBtn').onclick=()=>{buzz(8);setBasemap(isSat()?'map':'sat');notify({title:isSat()?tr('Satellitt'):tr('Kart'),icon:'layers'});};
 // Bildene til kartet tegnes på et lerret og leses tilbake med getImageData. willReadFrequently gir et
 // lerret i vanlig minne, så tilbakelesingen ikke må hente pikslene fra skjermkortet hver gang.
 function imageCtx(w,h){const cv=document.createElement('canvas');cv.width=w;cv.height=h;return cv.getContext('2d',{willReadFrequently:true});}
@@ -212,7 +212,7 @@ map.on('rotate',()=>{const b=map.getBearing();$('#compassBtn').hidden=Math.abs(b
   $('#compassIcon').style.transform=`rotate(${-b}deg)`;});
 $('#compassBtn').onclick=()=>{buzz(6);map.easeTo({bearing:0,duration:reduceMotion.matches?0:400});};
 $('#locateBtn').onclick=()=>{buzz(8);startCompass();
-  if(!state.pos){requestGeoOnce();toast(tr('Henter posisjonen din…'));return;}
+  if(!state.pos){requestGeoOnce();notify({title:tr('Henter posisjonen din…'),icon:'locate'});return;}
   setFollow(true);
   map.easeTo({center:[state.pos[1],state.pos[0]],zoom:Math.max(map.getZoom(),16),duration:reduceMotion.matches?0:700});};
 

@@ -77,7 +77,7 @@ async function refreshLegs(p){
 function vehicleEl(j){
   const el=document.createElement('button');el.type='button';el.className='tveh';el.style.setProperty('--c',j.color);el.style.setProperty('--o',j.on);
   el.innerHTML=`<i class="arrow"></i><span>${esc(j.code)}</span>`;
-  el.onclick=e=>{e.stopPropagation();buzz(6);const st=liveText(j);toast(st?plainText(st.text):`${modeOf(j.leg.mode).n} ${j.code}`);};
+  el.onclick=e=>{e.stopPropagation();buzz(6);const st=liveText(j);notify({title:st?plainText(st.text):`${modeOf(j.leg.mode).n} ${j.code}`,icon:'m-'+modeOf(j.leg.mode).i});};
   return el;
 }
 // Én gang i sekundet: flytt kjøretøyene og oppdater statuslinjen. Et tidsur og ikke en rAF-løkke,
@@ -269,14 +269,15 @@ const canNotify=()=>'Notification' in window&&'serviceWorker' in navigator&&loca
 const alertAt=p=>ts(p.expectedStartTime)-60000;
 function rideText(l){const md=modeOf(l.mode),n=l.mode==='metro'?md.n:md.n.toLowerCase();return`${n} ${l.line?.publicCode||''}`.trim();}
 async function toggleGoAlert(p){
-  if(goAlert.trip===p){goAlert.trip=null;clearTimeout(goAlert.timer);toast(tr('Varselet er slått av'));tripActionsUpdate();return;}
-  if(!canNotify()){toast(tr('Denne nettleseren kan ikke vise varsler.'));return;}
+  if(goAlert.trip===p){goAlert.trip=null;clearTimeout(goAlert.timer);tripActionsUpdate();
+    notify({title:tr('Varselet er slått av'),icon:'bell',action:{run:()=>{if(!goAlert.trip)toggleGoAlert(p);}}});return;}
+  if(!canNotify()){notify({title:tr('Denne nettleseren kan ikke vise varsler'),tone:'warn'});return;}
   let perm=Notification.permission;
   if(perm==='default'){try{perm=await Notification.requestPermission();}catch(e){report('varsel',e);}}
-  if(perm!=='granted'){toast(tr('Varsler er slått av for appen. Slå dem på i nettleserens innstillinger.'));tripActionsUpdate();return;}
-  if(alertAt(p)<Date.now()-60000){toast(tr('Det er allerede tid for å gå.'));return;}
+  if(perm!=='granted'){notify({title:tr('Varsler er slått av for appen'),sub:tr('Slå dem på i nettleserens innstillinger.'),tone:'warn'});tripActionsUpdate();return;}
+  if(alertAt(p)<Date.now()-60000){notify({title:tr('Det er allerede tid for å gå'),tone:'go'});return;}
   goAlert.trip=p;goAlert.fired=false;goAlert.checked=Date.now();buzz(8);
-  toast(tr('Du får varsel kl. {t}. Hold appen åpen eller i bakgrunnen.',{t:fmtT(alertAt(p))}));
+  notify({title:tr('Varsel kl. {t}',{t:fmtT(alertAt(p))}),sub:tr('Hold appen åpen eller i bakgrunnen.'),icon:'bell-on',tone:'ok'});
   scheduleGoAlert();tripActionsUpdate();
 }
 // Sjekker minst hvert 30. sekund: tidene kan endre seg, og tidsur i bakgrunnen kan bli forsinket.
@@ -295,7 +296,7 @@ async function fireGoAlert(p){
   const body=ride?tr('{ride} går fra {stop} kl. {t}.',{ride:rideText(ride),stop:placeName(ride.fromPlace,tr('holdeplassen')),t:fmtT(ride.expectedStartTime)}):tr('Reisen starter kl. {t}.',{t:fmtT(p.expectedStartTime)});
   buzz([14,90,14]);
   // Er appen synlig, sier ringen og vibrasjonen det allerede; et systemvarsel i tillegg blir støy.
-  if(!document.hidden){toast(`${tr('Gå nå')}: ${body}`);return;}
+  if(!document.hidden){notify({title:tr('Gå nå'),sub:body,tone:'go'});return;}
   try{const reg=await navigator.serviceWorker.ready;
     await reg.showNotification(tr('Gå nå'),{body,tag:'reis-go',renotify:true,icon:'icons/icon-192.png',badge:'icons/icon-192.png',vibrate:[14,90,14]});}
   catch(e){report('varsel',e);}
@@ -308,7 +309,8 @@ async function shareArrival(p){
   if(ride)text+=' '+tr('Tar {ride} fra {stop} kl. {t}.',{ride:rideText(ride),stop:placeName(ride.fromPlace,''),t:fmtT(ride.expectedStartTime)});
   buzz(6);
   if(navigator.share){try{await navigator.share({text});}catch(e){if(e.name!=='AbortError')report('del ankomst',e);}return;}
-  try{await navigator.clipboard.writeText(text);toast(tr('Kopiert. Lim inn i en melding.'));}catch(e){toast(text);}
+  try{await navigator.clipboard.writeText(text);flashDone($('#shareBtn'),tr('Kopiert'));notify({title:tr('Kopiert'),sub:tr('Lim inn i en melding.'),tone:'ok'});}
+  catch(e){notify({title:tr('Kunne ikke kopiere'),sub:text,tone:'warn'});}
 }
 
 /* ---------- Billett ----------

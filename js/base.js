@@ -89,9 +89,81 @@ addEventListener('unhandledrejection',e=>report('async',e.reason));
 
 /* ---------- Hjelpere ---------- */
 function buzz(ms){if(settings.vibrate&&navigator.vibrate)navigator.vibrate(ms);}
-let toastTimer=null;
-function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');
-  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2800);}
+
+/* ---------- Bekreftelse ----------
+   Én brikke øverst på skjermen, over kartet, så den ikke dekker arket (på Hjem under søkefeltet): ikon, kort
+   tittel, ev. en undertekst og en handling (Angre). Den står lenge nok til å bli lest (etter lengden,
+   og lenger med en handling), står stille mens du holder eller peker på den, og forsvinner når du
+   trykker på den eller sveiper den oppover.
+   tone: ok (grønn hake), warn (gul), go (signalgul, «Gå nå») eller info (ikonet for det som skjedde). */
+const TONE_ICON={ok:'check',warn:'alert',go:'walk',info:'info'};
+const toastState={timer:0,left:0,at:0,y0:null,dy:0,moved:0};
+function notify({title,sub='',icon='',tone='info',action=null}){
+  const t=$('#toast'),ic=icon||TONE_ICON[tone]||'info';
+  t.className=`toast tone-${tone}`;
+  t.innerHTML=`<span class="t-ico">${ico(ic,ic==='check'?'draw':'')}</span><span class="t-txt"><b>${esc(title)}</b>${sub?`<small>${esc(sub)}</small>`:''}</span>`+
+    (action?`<button class="t-act press" type="button">${esc(action.label||tr('Angre'))}</button>`:'');
+  // Etter Angre med tastaturet går fokus til sidetittelen, ikke tilbake til toppen av dokumentet.
+  if(action)$('.t-act',t).onclick=e=>{e.stopPropagation();buzz(6);const kb=document.activeElement===e.currentTarget;hideToast();action.run();
+    if(kb)$('#sheetHead .head-title')?.focus({preventScroll:true});};
+  t.style.transform='';void t.offsetWidth;t.classList.add('show');
+  toastState.left=Math.min(7000,Math.max(action?5000:2600,1400+(title.length+sub.length)*55));
+  runToast();
+}
+function runToast(){clearTimeout(toastState.timer);toastState.at=Date.now();toastState.timer=setTimeout(hideToast,toastState.left);}
+function pauseToast(){clearTimeout(toastState.timer);toastState.left=Math.max(1500,toastState.left-(Date.now()-toastState.at));}
+function hideToast(){
+  clearTimeout(toastState.timer);const t=$('#toast');t.classList.remove('show','drag');t.style.transform='';
+  // Handlingen fjernes når brikken er borte, så den ikke kan nås med tastaturet.
+  setTimeout(()=>{if(!t.classList.contains('show'))$('.t-act',t)?.remove();},320);
+}
+{
+  const t=$('#toast'),shown=()=>t.classList.contains('show');
+  t.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse'&&shown())pauseToast();});
+  t.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse'&&shown())runToast();});
+  t.addEventListener('focusin',()=>{if(shown())pauseToast();});
+  t.addEventListener('focusout',()=>{if(shown())runToast();});
+  // Hold for å lese; trykk eller sveip opp for å fjerne.
+  t.addEventListener('pointerdown',e=>{if(e.target.closest('.t-act')||!shown())return;
+    toastState.y0=e.clientY;toastState.dy=0;toastState.moved=0;pauseToast();t.classList.add('drag');t.setPointerCapture?.(e.pointerId);});
+  t.addEventListener('pointermove',e=>{if(toastState.y0==null)return;const d=e.clientY-toastState.y0;
+    toastState.moved=Math.max(toastState.moved,Math.abs(d));toastState.dy=Math.min(0,d);t.style.transform=`translate(-50%,${toastState.dy}px)`;});
+  const up=e=>{if(toastState.y0==null)return;toastState.y0=null;t.classList.remove('drag');
+    if(toastState.dy<-24||(e.type==='pointerup'&&toastState.moved<6))hideToast();else{t.style.transform='';runToast();}};
+  t.addEventListener('pointerup',up);t.addEventListener('pointercancel',up);
+}
+// Segmentvalg: marker knappen og la markøren gli dit (--i er plassen til valgt knapp).
+function segPick(seg,btn){const bs=[...seg.children];bs.forEach(x=>x.setAttribute('aria-pressed',String(x===btn)));seg.style.setProperty('--i',bs.indexOf(btn));}
+// To ikoner i ett: det andre tar over når knappen er på (aria-pressed) eller ferdig (.done).
+const morphIco=(a,b)=>`<span class="morph" aria-hidden="true">${ico(a,'ma')}${ico(b,'mb')}</span>`;
+// Knappen bekrefter selv: hake og ev. en kort tekst (i .lab) i to sekunder, så tilbake.
+function flashDone(btn,label=''){
+  if(!btn)return;const lab=$('.lab',btn);
+  if(lab&&label&&btn.dataset.lab==null)btn.dataset.lab=lab.textContent;
+  clearTimeout(btn._done);btn.classList.add('done');if(lab&&label)lab.textContent=label;
+  btn._done=setTimeout(()=>{btn.classList.remove('done');
+    if(lab&&btn.dataset.lab!=null){lab.textContent=btn.dataset.lab;delete btn.dataset.lab;}},2000);
+}
+// «Her havnet det»: det du nettopp lagret, lyser kort opp der det havnet, neste gang det vises
+// (innen et minutt). Tegnes siden på nytt mens det lyser, fortsetter lyset der det var.
+const LANDED_MS=1800;
+let landing=null;
+function markLanded(sel){landing={sel,t:Date.now(),at:0};}
+function showLanded(root=document){
+  if(!landing)return;const now=Date.now();
+  if(!landing.at&&now-landing.t>60000){landing=null;return;}
+  const el=$(landing.sel,root);if(!el)return;
+  if(!landing.at)landing.at=now;
+  const gone=now-landing.at;if(gone>=LANDED_MS){landing=null;return;}
+  el.style.animationDelay=`-${gone}ms`;el.classList.add('landed');
+  el.addEventListener('animationend',()=>{el.classList.remove('landed');el.style.animationDelay='';},{once:true});
+}
+// Myk overgang for endringer som gjelder hele skjermen (tema): krysstoning der nettleseren kan det.
+function crossfade(fn){
+  if(!document.startViewTransition||reduceMotion.matches||document.hidden){fn();return;}
+  const html=document.documentElement;html.classList.add('vt-fade');
+  document.startViewTransition(fn).finished.finally(()=>html.classList.remove('vt-fade'));
+}
 // Skjermleser: bare det som er verdt å avbryte for (gå nå, gå av), ikke hver oppdatering.
 let srTimer=null;
 function announce(msg){const el=$('#srLive');if(!el)return;el.textContent='';clearTimeout(srTimer);srTimer=setTimeout(()=>{el.textContent=msg;},60);}
@@ -123,7 +195,7 @@ function paintTheme(){
   $('meta[name="theme-color"]').content=t==='dark'?'#15191C':'#EFEDE7';
   if(mapLoaded){ReisMapStyle.applyTheme(map,t,isSat());applyOverlayTheme();}
 }
-mqDark.addEventListener('change',()=>{if(settings.theme==='auto'){paintTheme();if(router.cur.name==='settings')router.refresh();}});
+mqDark.addEventListener('change',()=>{if(settings.theme==='auto'){crossfade(paintTheme);if(router.cur.name==='settings')router.refresh();}});
 
 /* ---------- PWA ---------- */
 if(!window.REIS_ANDROID&&'serviceWorker' in navigator&&location.protocol!=='file:')
@@ -134,7 +206,7 @@ const canInstall=()=>!window.REIS_ANDROID&&!matchMedia('(display-mode: standalon
 async function doInstall(){
   buzz(10);
   if(deferredPrompt){deferredPrompt.prompt();await deferredPrompt.userChoice.catch(()=>{});deferredPrompt=null;}
-  else toast(tr('Åpne nettlesermenyen og velg «Legg til på startskjermen».'));
+  else notify({title:tr('Legg til på hjemskjermen'),sub:tr('Åpne nettlesermenyen og velg «Legg til på startskjermen».'),icon:'download'});
 }
 
 /* ---------- GraphQL ---------- */

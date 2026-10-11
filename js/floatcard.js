@@ -162,10 +162,21 @@ function showVehicleCard(p){
 function toggleFav(id){
   buzz(12);
   const s=findStop(id);if(!s)return;
-  const had=favs.some(f=>f.id===id);
-  favs=had?favs.filter(f=>f.id!==id):[...favs,{id:s.id,name:s.name,lat:s.lat,lon:s.lon}];
-  saveJSON('reisFavs',favs);
-  const b=$('#favBtn');if(b){b.setAttribute('aria-pressed',String(!had));if(!had){b.classList.remove('bump');void b.offsetWidth;b.classList.add('bump');}}
+  const at=favs.findIndex(f=>f.id===id),had=at>=0,old=favs[at];
+  setFavs(had?favs.filter(f=>f.id!==id):[...favs,{id:s.id,name:s.name,lat:s.lat,lon:s.lon}],id);
+  if(!had){markLanded(`.stop-card[data-stop="${CSS.escape(id)}"]`);notify({title:tr('Lagt til i favoritter'),sub:s.name,icon:'star',tone:'ok'});return;}
+  // Angre legger favoritten tilbake på samme plass.
+  notify({title:tr('Fjernet fra favoritter'),sub:s.name,icon:'star',action:{run:()=>{
+    if(favs.some(f=>f.id===id))return;const next=[...favs];next.splice(Math.min(at,next.length),0,old);
+    markLanded(`.stop-card[data-stop="${CSS.escape(id)}"]`);setFavs(next,id);}}});
+}
+// Lagre favorittene og vis den nye tilstanden der den synes: stjernen, kartet og Hjem.
+function setFavs(next,id){
+  const was=favs.some(f=>f.id===id);favs=next;saveJSON('reisFavs',favs);
+  const on=favs.some(f=>f.id===id),b=$('#favBtn');
+  if(b&&router.cur.name==='stop'&&router.cur.params.id===id){b.setAttribute('aria-pressed',String(on));
+    b.setAttribute('aria-label',on?tr('Fjern fra favoritter'):tr('Legg til i favoritter'));
+    if(on&&!was){b.classList.remove('bump');void b.offsetWidth;b.classList.add('bump');}}
   renderStopsLayer();
-  toast(had?tr('Fjernet fra favoritter'):tr('Lagt til i favoritter'));
+  if(router.cur.name==='home')router.refresh();
 }

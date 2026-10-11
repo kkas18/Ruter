@@ -65,6 +65,27 @@ test('Holdeplass: tidslinje, og en prikk åpner turen med alle stopp',async({pag
   await expectAccessible(page,'Turen');
 });
 
+test('Bekreftelse: favoritt med Angre, og den lyser opp på Hjem',async({page})=>{
+  await flows.home(page);
+  await flows.openStop(page);
+  const toast=page.locator('#toast');
+  await page.locator('#favBtn').click();
+  await expect(page.locator('#favBtn')).toHaveAttribute('aria-pressed','true');
+  await expect(toast).toHaveClass(/show/);
+  await expect(toast).toContainText('Lagt til i favoritter');
+  await page.locator('#toast').hover(); // står stille mens du peker på den
+  await expectAccessible(page,'Bekreftelse');
+  // Fjern, og angre: favoritten kommer tilbake.
+  await page.locator('#favBtn').click();
+  await expect(page.locator('#favBtn')).toHaveAttribute('aria-pressed','false');
+  await expect(toast).toContainText('Fjernet fra favoritter');
+  await toast.locator('.t-act').click();
+  await expect(page.locator('#favBtn')).toHaveAttribute('aria-pressed','true');
+  // På Hjem lyser favoritten kort opp der den havnet.
+  await page.evaluate(()=>router.home());
+  await expect(page.locator('.stop-card.landed')).toHaveCount(1);
+});
+
 test('Ringlinje: begge passeringene vises, og den andre åpner turen der',async({page})=>{
   await flows.home(page);
   await flows.openStop(page);
@@ -97,6 +118,10 @@ test('Søk med tastatur, færre bytter og reisen med varsel, deling og billett',
   await page.evaluate(()=>{navigator.share=undefined;}); // deling uten delingsark: kopieres
   await page.locator('#shareBtn').click();
   await expect.poll(()=>page.evaluate(()=>navigator.clipboard.readText())).toContain('Er fremme ved');
+  // Knappen bekrefter selv («Kopiert» med hake), og brikken øverst sier hva som skjedde.
+  await expect(page.locator('#shareBtn')).toHaveClass(/done/);
+  await expect(page.locator('#shareBtn')).toContainText('Kopiert');
+  await expect(page.locator('#toast')).toContainText('Kopiert');
   await expectAccessible(page,'Reisen');
 });
 
