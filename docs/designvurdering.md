@@ -297,3 +297,57 @@ Prinsipp: bevegelse skal forklare noe – vise sammenheng, bekrefte at noe skjed
 
 ### Funnet underveis
 - Turer som startet før midnatt hørte til gårsdagens driftsdøgn hos Entur, og ga «0 stopp» og en feil like etter midnatt (både på turen og i live-reisen). Driftsdøgnet sendes nå med, og ukjent døgn prøves i dag og så i går.
+
+## Runde 9: tilgjengelighet, batteri, drift og nye funksjoner
+
+Vurderingen etter runde 8 målte strengere, med axe, CPU-profilering og telling av kartbilder, og ga snitt 8,1. Denne runden følger opp alle funnene fra den vurderingen. Målt i Chromium på datamaskinen, ikke på telefon.
+
+| Område | Før | Etter | Hvorfor |
+|---|---|---|---|
+| Tilgjengelighet | 7 | **9** | axe: 0 brudd på alle skjermer i lyst og mørkt tema, på norsk og engelsk. Sjekkes nå automatisk i CI |
+| Ytelse og batteri | 7 | **8,5** | Kartkortene koster 2 ms i stedet for 56. Kartet hviler når arket dekker det |
+| Kodekvalitet | 7 | **8,5** | Ende-til-ende-tester med lagrede Entur-svar, axe og CSP-sjekk i CI. Tester for språket |
+| Øvrige | | uendret | Design, grafikk, animasjoner og appfølelse: 9 |
+| **Snitt** | **8,1** | **8,9** | |
+
+### A. Retting
+- **Kontrast:** sekundærteksten er mørkere (#5B6468 i lyst tema, #9AA2A7 i mørkt), så den har minst 4,5:1 mot alle flater. Passerte stopp og ferdige etapper dempes med farge, ikke gjennomsiktighet.
+- **Skjermleser:** kartmarkørene har navn og rolle («Din posisjon», «Start: …», «Buss 70»). Sanntidsprikker leses som «Sanntid», og plattform og spor leses fullt ut.
+- **Søkefeltet** er en riktig kombinasjonsboks: forslagene ligger i en listeboks, piltastene flytter markeringen, og Enter velger. Beskjeder som «Søker…» leses opp uten å være et valg.
+- **Dra-hanken** er 24 px høy. Rulleflaten i arket kan få fokus, så den kan rulles med tastaturet.
+- **Ringen ved null** leses «Gå nå»: verbet står i ringen og «nå» under. Velkomstskjermen skriver «REIS».
+
+### B. Batteri
+
+| Måling (30 sek uten berøring) | Før | Etter |
+|---|---|---|
+| Ett avgangskort på kartet | 56 ms | **2 ms** |
+| Hjem, skriptarbeid | 2,8 s | **0,24 s** |
+| Sentrum, zoom 16, skriptarbeid | 14,5 s | **0,37 s** |
+| Arket helt oppe, skriptarbeid | 5,6 s | **0,01 s** (0 kall til Entur) |
+
+- Kortene tegnes uten uskarphet (skyggen er to tynne lag). De lages bare for holdeplassene i utsnittet, og lerretene leses tilbake fra vanlig minne (`willReadFrequently`).
+- Når arket dekker kartet, står kjøretøy, beregnede posisjoner, kort og pulser stille. Når arket går ned igjen, hentes det som er gammelt.
+- Beregnede busser flyttes hvert 2,1 sek i sparemodus i stedet for hvert 0,7 sek. Live-reisen bruker et tidsur én gang i sekundet i stedet for en rAF-løkke som vekket skriptet 60 ganger i sekundet.
+- Dra-for-oppdatering lytter bare når listen står helt øverst på Hjem. Ellers ruller listen uten å vente på skriptet.
+- **Publisering:** GitHub Pages komprimerer allerede alle filer (gzip). Minifisering ville spart rundt 20 kB ved første besøk og ingenting senere, fordi service workeren har filene. Det forsvarer ikke et byggesteg, så appen er fortsatt uten.
+
+### C. Drift og kvalitet
+- **Egen identifikator mot Entur:** `kkas18-reis` (ET-Client-Name).
+- **Content-Security-Policy:** bare egne skript, og nettverk bare mot Entur og kartflisene. Ingen brudd i noen flyt.
+- **Ende-til-ende-tester** (`npm run e2e`, Playwright): sju tester går gjennom Hjem, holdeplass og tur, søk med tastatur, færre bytter, reisen, engelsk, trafikkmeldinger, frakoblet og mørkt tema. Svarene fra Entur er tatt opp (`npm run e2e:record`), og klokken stilles til opptakstidspunktet, så testene er like hver gang og ikke trenger nett. Hver skjerm sjekkes med axe, og hver test sjekker for skriptfeil og CSP-brudd. Testene kjører i CI ved siden av lint og enhetstester.
+
+### D. Funksjoner
+- **Reisevalg:** færre bytter, trinnfritt og gangfart står øverst i reiseforslagene og i Innstillinger. Valgene gjelder også snarveiene Hjem og Jobb. To ærlige funn: Enturs «trinnfritt» gjelder foreløpig bare gangveien, og det sier appen. «Færre bytter» endret ikke svarene fra Entur i praksis, fordi de direkte alternativene allerede er med. Appen sorterer derfor reisene med færrest bytter først.
+- **«Varsle meg»:** ett minutt før du må gå, kommer et varsel med linje, holdeplass og tid. Tiden følger forsinkelser. Det virker mens appen er åpen eller ligger i bakgrunnen. Når appen er helt lukket, kreves push fra en server, og det er ikke bygget.
+- **«Del ankomst»:** sender for eksempel «Er fremme ved Storo ca. kl. 16:01. Tar buss 31 fra Carl Berners plass kl. 15:42.» Uten delingsark kopieres teksten.
+- **Billett:** snarvei til Ruter-appen i App Store eller Google Play (der står «Åpne» hvis appen er installert), ellers til Ruters side om billettkjøp. REIS selger ikke billetter.
+- **Engelsk:** Auto, Norsk eller English, og byttet skjer uten omstart. Trafikkmeldingene vises på engelsk når Ruter har skrevet dem på engelsk, og stedssøket svarer på engelsk.
+
+### Funnet underveis
+- Gangetappene får ikke nye tider fra Entur. Når bussen ble forsinket, sto derfor «gå om» og ankomsttiden stille. Gangen før og etter flyttes nå like mye som første og siste avgang.
+- axe målte for lav kontrast midt i innfadingene. Testene venter nå til innfadingene er ferdige, så de bare melder ekte brudd.
+
+### Fortsatt åpent
+- **Varsel når appen er lukket:** krever en liten push-tjeneste (VAPID og planlagt utsending), og på iPhone at appen er lagt til på hjemskjermen.
+- **Måling på ekte telefoner:** se testplanen.

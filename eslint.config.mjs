@@ -50,6 +50,8 @@ export default [
   // for dem og gitt feil først når teksten skal vises.
   {files:['js/**/*.js'],ignores:['js/i18n.js'],rules:{'id-denylist':['error','tr','tn']}},
   {files:['sw.js'],languageOptions:{sourceType:'script',globals:globals.serviceworker}},
-  {files:['tests/**/*.js'],languageOptions:{sourceType:'commonjs',globals:globals.node}},
+  {files:['tests/**/*.js','playwright.config.js'],languageOptions:{sourceType:'commonjs',globals:globals.node}},
+  // Ende-til-ende-testene kjører kode i nettleseren (page.evaluate): appens navn og nettleserens er globale der.
+  {files:['tests/e2e/**/*.js'],languageOptions:{globals:{...globals.browser,...Object.assign({},...APP.map(f=>decl[f])),axe:'readonly'}}},
   {files:['eslint.config.mjs'],languageOptions:{sourceType:'module',globals:globals.node}}
 ];

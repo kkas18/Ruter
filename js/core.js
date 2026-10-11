@@ -16,7 +16,6 @@ const coreCfg={walkKmh:4.5};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmtT=ts=>new Date(ts).toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
 const minUntil=ts=>Math.round((new Date(ts).getTime()-Date.now())/60000);
-const plural=(n,one,many)=>n===1?one:many;
 const changesText=n=>n===0?tr('Direkte'):tn(n,'{n} bytte','{n} bytter');
 const fmtDec=(x,d=1)=>{const s=x.toFixed(d);return I18N.lang==='en'?s:s.replace('.',',');};
 const fmtDist=m=>m<1000?`${Math.round(m/10)*10} m`:`${fmtDec(m/1000)} km`;
@@ -186,6 +185,6 @@ function alertLevel(reportType,severity,summary){
   return sev==='high'||SEVERE_RX.test(summary||'')?'high':'med';
 }
 
-if(typeof module==='object'&&module.exports)module.exports={coreCfg,esc,fmtT,minUntil,plural,changesText,fmtDec,fmtDist,placeName,
+if(typeof module==='object'&&module.exports)module.exports={coreCfg,esc,fmtT,minUntil,changesText,fmtDec,fmtDist,placeName,
   geoDist,walkMin,NEAR_WALK_MAX,nearWalk,reachStatus,parseCalls,decodePoly,mPerDeg,prepPath,projectStops,pointAt,bearingOf,
   ts,depT,arrT,estimate,callPos,nearestCallIdx,layoutTimeline,RING_WORDS,ringState,SEV_RANK,SEVERE_RX,sevClass,alertLevel};

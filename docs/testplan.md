@@ -1,6 +1,6 @@
 # Testplan for ekte telefoner
 
-Automatiske tester (`npm run check`) dekker kjernelogikken, og alle flyter er kjørt i Chromium på datamaskinen i mobilstørrelse. Det som bare kan sjekkes på en ekte telefon ute i trafikken, står her. Kryss av og noter det som avviker. Kopier gjerne **Innstillinger → Diagnostikk → Kopier diagnostikk** inn i notatet.
+Automatiske tester dekker kjernelogikken (`npm run check`) og hovedflytene i en ekte nettleser med lagrede svar fra Entur, inkludert tilgjengelighet (`npm run e2e`). Det som bare kan sjekkes på en ekte telefon ute i trafikken, står her. Kryss av og noter det som avviker. Kopier gjerne **Innstillinger → Diagnostikk → Kopier diagnostikk** inn i notatet.
 
 **Enheter:** én iPhone (Safari, lagt til på hjemskjermen) og én Android (Chrome, installert som app).
 **Sted:** en vanlig holdeplass (for eksempel Furuveien) og et knutepunkt (Jernbanetorget eller Storo).
@@ -30,6 +30,10 @@ Automatiske tester (`npm run check`) dekker kjernelogikken, og alle flyter er kj
 - [ ] Velg en reise: ringen viser «gå om» → «går om» → «gå av om» etter hvert som du går, venter og sitter på.
 - [ ] Om bord: bussen glir langs skinnen i reiselisten, og «Neste: …» stemmer med virkeligheten (noter avvik i stopp).
 - [ ] «Følg»-knappen: kartet følger bussen jevnt til du drar i kartet.
+- [ ] Reisevalg øverst i forslagene: «Færre bytter» legger direkte reiser først, «Trinnfritt» viser en kort forklaring, og «Rolig gange» gir lengre gangtid. Valgene huskes til neste søk og gjelder også Hjem-flisen.
+- [ ] «Varsle meg» på en reise: tillat varsler, legg appen i bakgrunnen. Varselet «Gå nå» kommer ett minutt før du må gå, med linje, holdeplass og tid. Trykk på varselet: appen åpnes.
+- [ ] «Del ankomst»: delingsarket åpnes med «Er fremme ved … ca. kl. …». Tiden stemmer med reisen, også når bussen er forsinket.
+- [ ] «Billett»: Ruter-appen åpnes i App Store eller Google Play, med «Åpne» hvis den er installert.
 
 ## 5. Bevegelse
 - [ ] Trykk på en holdeplass på Hjem: navnet glir opp og blir tittelen. Tilbake: det glir ned igjen.
@@ -49,6 +53,7 @@ Automatiske tester (`npm run check`) dekker kjernelogikken, og alle flyter er kj
 - [ ] Nett tilbake: alt oppdateres av seg selv innen 30 sekunder.
 - [ ] La appen ligge åpen på Hjem i 30 minutter. Batteriforbruk under 5 % (sparemodus etter fem minutter uten berøring).
 - [ ] Diagnostikk viser antall kall til Entur siste time. Forventet: rundt 600 i aktiv bruk, under 250 i sparemodus.
+- [ ] Arket helt oppe i 5 minutter: antall kall i Diagnostikk øker nesten ikke (kartet hviler). Dra arket ned: bussene kommer tilbake innen et par sekunder.
 
 ## 8. Tilgjengelighet
 - [ ] VoiceOver (iPhone) og TalkBack (Android): sidetittelen leses når du bytter side. Avgangene leses med linje, retning og minutter.
@@ -56,6 +61,12 @@ Automatiske tester (`npm run check`) dekker kjernelogikken, og alle flyter er kj
 - [ ] Stor tekst i systemet: ingen tekst kuttes slik at mening går tapt.
 - [ ] Redusert bevegelse i systemet: animasjonene slås av.
 - [ ] Alle knapper kan treffes med tommelen uten å bomme (prikkene i tidslinjen, lukk-knappen på kartkortet).
+- [ ] Søket med skjermleser: forslagene leses som en liste med antall, og valgt forslag leses når du blar.
+- [ ] Ringen ved null leses «Gå nå» (eller «Går nå», «Gå av nå»), ikke «nå gå».
 
-## 9. Når testen er bestått
-Neste steg er varselet «Gå nå» (push via service worker), som avhenger av at punkt 4 og 6 fungerer som beskrevet.
+## 9. Språk
+- [ ] Telefon på engelsk: appen starter på engelsk. Innstillinger → Språk → Norsk bytter med en gang, uten omstart.
+- [ ] På engelsk: trafikkmeldinger på engelsk der Ruter har skrevet dem, ellers på norsk. Klokkeslett med 24 timer.
+
+## 10. Når testen er bestått
+Neste steg er «Gå nå»-varsel også når appen er helt lukket. Det krever en liten push-tjeneste på en server, og på iPhone at appen er lagt til på hjemskjermen.

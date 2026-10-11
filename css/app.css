@@ -280,6 +280,8 @@ body.sat .fc-leader line{stroke:#fff;opacity:.9}
 button.titles{text-align:left}
 .sheet-scroll{flex:1;min-height:0;overflow-y:hidden;overscroll-behavior:contain;padding:0 0 calc(var(--sab) + 24px)}
 .sheet.full .sheet-scroll{overflow-y:auto;touch-action:pan-y}
+/* Rulleflaten kan få fokus (tastatur): ringen tegnes innenfor kanten. */
+.sheet-scroll:focus-visible{outline-offset:-3px;border-radius:0}
 .sheet-page{animation:pageIn var(--t-med) var(--ease-out)}
 .sheet-page.back{animation-name:pageBack}
 @keyframes pageIn{from{opacity:0;transform:translateX(18px)}}
