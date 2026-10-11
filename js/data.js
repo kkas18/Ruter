@@ -13,7 +13,7 @@ function handlePos(p){
   // GPS-retning gjelder bare i fart; ellers brukes kompasset.
   const moving=(p.coords.speed||0)>1.2&&p.coords.heading!=null&&!isNaN(p.coords.heading);
   if(moving)state.heading=p.coords.heading;
-  if(!meMarker._map)meMarker.setLngLat([lon,lat]).addTo(map);
+  if(!meMarker._map)nameMarker(meMarker.setLngLat([lon,lat]).addTo(map),tr('Din posisjon'));
   else tweenLngLat(meMarker,[lon,lat],700); // glir mellom målingene i stedet for å hoppe
   paintHeading();
   renderAcc();
@@ -42,16 +42,16 @@ function startCompass(){
 }
 let headingRaf=0;
 // Er avgangene hentet fra lageret (frakoblet), sies det hvor gamle de er.
-const ageText=t=>{const m=Math.round((Date.now()-t)/60000);return`data fra kl. ${fmtT(t)}${m>=1?` (${m} min siden)`:''}`;};
+const ageText=t=>{const m=Math.round((Date.now()-t)/60000);return tr('data fra kl. {t}',{t:fmtT(t)})+(m>=1?tr(' ({n} min siden)',{n:m}):'');};
 const homeSubText=()=>{
   const stale=state.nearby.map(s=>state.deps.get(s.id)).find(e=>e?.stale&&e.t);
-  if(stale)return`${navigator.onLine?'Får ikke kontakt':'Frakoblet'} · ${ageText(stale.t)}`;
-  return`${state.pos?`Rundt deg${state.acc?` · ±${state.acc} m`:''}`:state.nearbyAt?'Rundt kartsenteret':'Henter posisjon…'}${state.updated?` · oppdatert ${fmtT(state.updated)}`:''}`;
+  if(stale)return`${navigator.onLine?tr('Får ikke kontakt'):tr('Frakoblet')} · ${ageText(stale.t)}`;
+  return`${state.pos?`${tr('Rundt deg')}${state.acc?` · ±${state.acc} m`:''}`:state.nearbyAt?tr('Rundt kartsenteret'):tr('Henter posisjon…')}${state.updated?tr(' · oppdatert {t}',{t:fmtT(state.updated)}):''}`;
 };
 function requestGeoOnce(){
-  if(!('geolocation' in navigator)){toast('Enheten støtter ikke posisjon.');return;}
+  if(!('geolocation' in navigator)){toast(tr('Enheten støtter ikke posisjon.'));return;}
   navigator.geolocation.getCurrentPosition(p=>{handlePos(p);startGeo();},
-    ()=>toast('Fikk ikke tilgang til posisjon. Sjekk tillatelsene.'),{enableHighAccuracy:true,timeout:15000});
+    ()=>toast(tr('Fikk ikke tilgang til posisjon. Sjekk tillatelsene.')),{enableHighAccuracy:true,timeout:15000});
 }
 function startGeo(){
   if(!('geolocation' in navigator)){geoFallback();return;}
@@ -65,12 +65,12 @@ function geoFallback(err){
 
 /* ---------- Holdeplasser ---------- */
 async function reverseStops(lat,lon,radiusKm,limit){
-  const url=`${API.reverse}?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&radius=${radiusKm}&limit=${limit}&layers=stopPlace&lang=no`;
+  const url=`${API.reverse}?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&radius=${radiusKm}&limit=${limit}&layers=stopPlace&lang=${geoLang()}`;
   const r=await fetchWithTimeout(url,{headers:{'ET-Client-Name':API.client}},15000);
-  if(!r.ok)throw new Error(`Stedsøket svarte ${r.status}`);
+  if(!r.ok)throw new Error(tr('Stedsøket svarte {s}',{s:r.status}));
   const data=await r.json();
   return(data.features||[]).filter(f=>f.properties?.id?.startsWith('NSR:StopPlace:')&&f.geometry?.coordinates?.length>=2)
-    .map(f=>({id:f.properties.id,name:f.properties.names?.default||f.properties.name||'Holdeplass',lat:f.geometry.coordinates[1],lon:f.geometry.coordinates[0]}));
+    .map(f=>({id:f.properties.id,name:f.properties.names?.default||f.properties.name||tr('Holdeplass'),lat:f.geometry.coordinates[1],lon:f.geometry.coordinates[0]}));
 }
 let nearbySeq=0;
 async function loadNearby(lat,lon){
@@ -99,7 +99,9 @@ let viewTimer=null;
 map.on('moveend',()=>{
   clearTimeout(viewTimer);
   viewTimer=setTimeout(async()=>{
+    if(mapCovered())return;
     refreshVehicles(true);loadEstVehicles(true);tickEst();loadViewDeps(true);
+    if(cardMode)renderStopsLayer(); // kort for holdeplasser som nå er i utsnittet, med tidene vi har
     if(map.getZoom()<12||router.cur.name==='results'||router.cur.name==='trip')return;
     const c=map.getCenter(),b=map.getBounds();
     try{
@@ -153,6 +155,7 @@ const VEH_MODE={BUS:'bus',TRAM:'tram',METRO:'metro',RAIL:'rail',WATER:'water',FE
 let vehBusy=false,vehAt=0,vehPrev=new Map(),vehAnim=0;
 const vehiclesWanted=()=>settings.showVehicles&&!document.hidden&&mapLoaded&&map.getZoom()>=11.5&&['home','stop'].includes(router.cur.name);
 async function refreshVehicles(force=false){
+  if(mapCovered())return; // står stille til kartet vises igjen
   if(!vehiclesWanted()){if(mapLoaded&&!['home','stop'].includes(router.cur.name))setData('vehicles',EMPTY);return;}
   if(vehBusy||(!force&&Date.now()-vehAt<9000))return;
   vehBusy=true;vehAt=Date.now();
@@ -231,6 +234,7 @@ async function gqlBatch(parts){ // flere spørringer i én forespørsel via alia
 }
 const qid=id=>JSON.stringify(String(id));
 async function loadEstVehicles(force=false){
+  if(mapCovered())return;
   if(!estWanted()){if(estFeats.length){estFeats=[];renderVehicleLayer();}return;}
   if(estBusy||(!force&&Date.now()-estAt<25000))return;
   estBusy=true;estAt=Date.now();
@@ -284,6 +288,7 @@ function prepEst(j){ // geometri og stoppenes plass langs linjen, beregnet én g
   j.pts=pts;j.cum=prepPath(pts);j.stopS=projectStops(pts,j.cum,j.calls);return true;
 }
 function tickEst(){
+  if(mapCovered())return;
   if(!estWanted()){if(estFeats.length){estFeats=[];renderVehicleLayer();}return;}
   const now=Date.now(),b=map.getBounds(),feats=[];
   estView.forEach(id=>{const j=estJ.get(id);if(!j||!prepEst(j))return;
@@ -293,13 +298,14 @@ function tickEst(){
     feats.push({type:'Feature',geometry:{type:'Point',coordinates:pt.p},properties:{vid:id,sj:id,mode,bearing:pt.b,line:j.code,dest:j.dest,est:true}});});
   estFeats=feats;renderVehicleLayer();
 }
-setInterval(()=>{if(!document.hidden)tickEst();},700);
 
 /* ---------- Trafikkmeldinger (SIRI SX) ---------- */
-function langText(el,tag){ // velg norsk, så språkløs, så første
+// Ruter skriver meldingene på norsk og ofte også på engelsk: velg appens språk, så norsk, så det som finnes.
+const SX_LANG={nb:['no','nb','nor','nob'],en:['en','eng']};
+function langText(el,tag){
   const ns=[...el.getElementsByTagName(tag)];
   const lang=n=>(n.getAttribute('xml:lang')||n.getAttribute('lang')||'').toLowerCase();
-  const pick=ns.find(n=>['no','nb','nor','nob'].includes(lang(n)))||ns.find(n=>!lang(n))||ns[0];
+  const pick=ns.find(n=>SX_LANG[I18N.lang].includes(lang(n)))||ns.find(n=>SX_LANG.nb.includes(lang(n)))||ns.find(n=>!lang(n))||ns[0];
   return pick?pick.textContent.trim():'';
 }
 async function loadAlerts(){
@@ -338,12 +344,12 @@ function placeFromFeature(f){
 async function searchPlaces(q){
   const focus=state.pos||(mapLoaded?[map.getCenter().lat,map.getCenter().lng]:OSLO);
   // Eget adressesøk sørger for at et gatenavn treffer også uten husnummer.
-  const common=`q=${encodeURIComponent(q)}&limit=16&lang=no&lat=${focus[0]}&lon=${focus[1]}&radius=100`;
+  const common=`q=${encodeURIComponent(q)}&limit=16&lang=${geoLang()}&lat=${focus[0]}&lon=${focus[1]}&radius=100`;
   const searches=[`${API.geocoder}?${common}&layers=stopPlace,groupOfStopPlaces,street,address,poi,place`,
     `${API.geocoder}?${common}&layers=street,address&sources=kartverket-matrikkelenadresse`];
   const responses=await Promise.allSettled(searches.map(async url=>{
     const r=await fetchWithTimeout(url,{headers:{'ET-Client-Name':API.client}},12000);
-    if(!r.ok)throw new Error('Stedssøk svarte '+r.status);
+    if(!r.ok)throw new Error(tr('Stedsøket svarte {s}',{s:r.status}));
     return(await r.json()).features||[];
   }));
   const reached=responses.some(r=>r.status==='fulfilled');
@@ -376,23 +382,24 @@ async function searchPlaces(q){
   const needle=q.toLocaleLowerCase('nb-NO');
   const local=[...favs,...recentTargets].filter((f,i,a)=>f?.name&&f.lat!=null&&f.name.toLocaleLowerCase('nb-NO').includes(needle)&&
     a.findIndex(x=>x?.name===f.name&&x?.lat===f.lat)===i).slice(0,8)
-    .map(f=>({id:f.id||'',name:f.name,locality:'Lagret på enheten',kind:'Nylig brukt',lat:f.lat,lon:f.lon}));
+    .map(f=>({id:f.id||'',name:f.name,locality:tr('Lagret på enheten'),kind:'Nylig brukt',lat:f.lat,lon:f.lon}));
   if(local.length)return local;
   return reached?[]:null;
 }
 function rememberTarget(t){
-  if(!t||!Number.isFinite(+t.lat)||!Number.isFinite(+t.lon)||t.name==='Punkt på kartet'||t.name==='Min posisjon')return;
+  if(!t||t.pin||t.me||!Number.isFinite(+t.lat)||!Number.isFinite(+t.lon))return; // punkt på kartet og «min posisjon» huskes ikke
   recentTargets=[{name:String(t.name),lat:+t.lat,lon:+t.lon},...recentTargets.filter(x=>x&&(+x.lat!==+t.lat||+x.lon!==+t.lon))].slice(0,6);
   saveJSON('reisRecentTargets',recentTargets);
 }
 
 /* ---------- Reisesøk ---------- */
 let tripSeq=0;
+const rideCount=p=>(p.legs||[]).filter(l=>l.mode!=='foot').length;
 /* ---------- Snarveier: Hjem og Jobb ----------
    For hvert fast sted hentes neste reise herfra (lett spørring, hvert annet minutt), så Hjem kan
    vise «gå om 6 min · fremme 17:42» uten at du søker. */
-const Q_SHORT=`query($fl:Float!,$fp:Float!,$tl:Float!,$tp:Float!){
-  trip(from:{coordinates:{latitude:$fl,longitude:$fp}},to:{coordinates:{latitude:$tl,longitude:$tp}},numTripPatterns:4){
+const Q_SHORT=`query($fl:Float!,$fp:Float!,$tl:Float!,$tp:Float!,${TRIP_ARGS}){
+  trip(from:{coordinates:{latitude:$fl,longitude:$fp}},to:{coordinates:{latitude:$tl,longitude:$tp}},numTripPatterns:4,${TRIP_OPTS}){
     tripPatterns{expectedStartTime expectedEndTime legs{mode line{publicCode}}}}}`;
 const shortcuts=new Map(); // nøkkel → {t,lat,lon,here|start,end,ride}
 async function loadShortcuts(force=false){
@@ -404,8 +411,10 @@ async function loadShortcuts(force=false){
     if(!force&&same&&Date.now()-old.t<120000&&(!old.start||old.start>Date.now()))return;
     if(geoDist(state.pos,[p.lat,p.lon])<150){shortcuts.set(k,{t:Date.now(),lat:p.lat,lon:p.lon,here:true});changed=true;return;}
     try{
-      const d=await gql(Q_SHORT,{fl:state.pos[0],fp:state.pos[1],tl:p.lat,tp:p.lon});
-      const best=(d.trip?.tripPatterns||[]).map(x=>({...x,s:ts(x.expectedStartTime)})).filter(x=>x.s>Date.now()-30000).sort((a,b)=>a.s-b.s)[0];
+      const d=await gql(Q_SHORT,{fl:state.pos[0],fp:state.pos[1],tl:p.lat,tp:p.lon,...tripPrefs()});
+      let ps=(d.trip?.tripPatterns||[]).map(x=>({...x,s:ts(x.expectedStartTime)})).filter(x=>x.s>Date.now()-30000).sort((a,b)=>a.s-b.s);
+      if(settings.fewerChanges){const few=Math.min(...ps.map(rideCount));ps=ps.filter(x=>rideCount(x)===few);}
+      const best=ps[0];
       const ride=best?.legs?.find(l=>l.mode!=='foot');
       shortcuts.set(k,best?{t:Date.now(),lat:p.lat,lon:p.lon,start:best.s,end:ts(best.expectedEndTime),
         ride:ride?{code:ride.line?.publicCode||modeOf(ride.mode).n,mode:ride.mode}:null}:{t:Date.now(),lat:p.lat,lon:p.lon,none:true});
@@ -433,9 +442,9 @@ function startTripSearch(fromSearch=false){
 async function runTripSearch(){
   const seq=++tripSeq;
   const from=state.fromSel?[state.fromSel.lat,state.fromSel.lon]:state.pos;
-  if(!from){state.tripsLoading=false;state.tripError='Velg hvor du reiser fra, eller slå på posisjon.';router.refresh();return;}
-  const fromName=state.fromSel?.name||'Min posisjon',toName=state.dest.name||'Mål';
-  const vars={fl:from[0],fp:from[1],tl:state.dest.lat,tp:state.dest.lon,dt:null,arr:false};
+  if(!from){state.tripsLoading=false;state.tripError=tr('Velg hvor du reiser fra, eller slå på posisjon.');router.refresh();return;}
+  const fromName=state.fromSel?.name||tr('Min posisjon'),toName=state.dest.name||tr('Mål');
+  const vars={fl:from[0],fp:from[1],tl:state.dest.lat,tp:state.dest.lon,dt:null,arr:false,n:settings.fewerChanges?8:6,...tripPrefs()};
   if(state.timeMode!=='now'&&state.time){
     const d=new Date();const [hh,mm]=state.time.split(':');d.setHours(+hh,+mm,0,0);
     if(d.getTime()<Date.now()-60000)d.setDate(d.getDate()+1);
@@ -450,11 +459,13 @@ async function runTripSearch(){
     if(seq!==tripSeq)return;
     const ps=d.trip?.tripPatterns||[];
     ps.forEach(p=>{p.stopDetailsAvailable=tripSchemaLevel<3;p.fromName=fromName;p.toName=toName;});
+    // Færre bytter: reiser med færrest bytter først, ellers i Enturs rekkefølge (sorteringen er stabil).
+    if(settings.fewerChanges)ps.sort((a,b)=>rideCount(a)-rideCount(b));
     state.trips=ps;state.tripsLoading=false;
     if(ps.length){rememberTarget(state.dest);loadTripCalls();}
   }catch(e){
     if(seq!==tripSeq)return;
-    state.tripsLoading=false;state.tripError=e.message||'Ukjent feil';
+    state.tripsLoading=false;state.tripError=e.message||tr('Ukjent feil');
   }
   if(router.cur.name==='results'){router.render(null);if(state.trips.length)drawRoute(state.trips[0]);}
 }
@@ -483,11 +494,11 @@ function drawRoute(p){
   });
   p.schematic=rides.length>0&&!drawn;
   rides.forEach((l,i)=>{
-    if(i<rides.length-1){const q=l.toPlace?.quay;if(+q?.latitude)addPin(+q.latitude,+q.longitude,`<div class="xfer" style="--c:${modeOf(l.mode).c}">${i+1}</div>`);}
+    if(i<rides.length-1){const q=l.toPlace?.quay;if(+q?.latitude)addPin(+q.latitude,+q.longitude,`<div class="xfer" style="--c:${modeOf(l.mode).c}">${i+1}</div>`,tr('Bytte {n}: {name}',{n:i+1,name:placeName(l.toPlace,'')}));}
   });
   const start=state.fromSel?[state.fromSel.lat,state.fromSel.lon]:state.pos;
-  if(state.fromSel)addPin(state.fromSel.lat,state.fromSel.lon,'<div class="pin from">A</div>');
-  if(state.dest)addPin(state.dest.lat,state.dest.lon,'<div class="pin to">B</div>');
+  if(state.fromSel)addPin(state.fromSel.lat,state.fromSel.lon,'<div class="pin from">A</div>',tr('Start: {name}',{name:state.fromSel.name}));
+  if(state.dest)addPin(state.dest.lat,state.dest.lon,'<div class="pin to">B</div>',tr('Mål: {name}',{name:state.dest.name}));
   if(start)coords.push([start[1],start[0]]);
   if(state.dest)coords.push([state.dest.lon,state.dest.lat]);
   if(coords.length>=2){
@@ -516,7 +527,7 @@ function renderRouteStops(p){
     const lat=+q?.latitude,lon=+q?.longitude;if(!lat||!lon)return;
     const k=lat.toFixed(5)+lon.toFixed(5);if(seen.has(k))return;seen.add(k);
     stops.push({type:'Feature',geometry:{type:'Point',coordinates:[lon,lat]},
-      properties:{name:name||'Stopp',time:time||'',clock:time?fmtT(time):'',color,kind,minor}});
+      properties:{name:name||tr('Stopp'),time:time||'',clock:time?fmtT(time):'',color,kind,minor}});
   };
   rides.forEach((l,i)=>{
     const c=modeOf(l.mode).c;

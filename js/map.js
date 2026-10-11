@@ -4,10 +4,13 @@
 /* =====================================================================
    KART
    ===================================================================== */
+// Kartets egne tekster (skjermleser og verktøytips) på appens språk.
+const mapUiStrings=()=>({'Map.Title':tr('Kart'),'Marker.Title':tr('Markør'),'Popup.Close':tr('Lukk'),
+  'AttributionControl.ToggleAttribution':tr('Vis kildehenvisning'),'AttributionControl.MapFeedback':tr('Meld feil i kartet')});
 const map=new maplibregl.Map({
   container:'map',style:ReisMapStyle.build(resolveTheme()),center:[OSLO[1],OSLO[0]],zoom:13.5,
   attributionControl:false,pitchWithRotate:false,touchPitch:false,dragRotate:true,maxZoom:19,minZoom:5,
-  fadeDuration:150,cooperativeGestures:false
+  fadeDuration:150,cooperativeGestures:false,locale:mapUiStrings()
 });
 map.addControl(new maplibregl.AttributionControl({compact:true}),'top-left');
 map.touchZoomRotate.enableRotation();
@@ -17,6 +20,8 @@ const fc=features=>({type:'FeatureCollection',features});
 const setData=(id,data)=>{const s=mapLoaded&&map.getSource(id);if(s)s.setData(data);};
 
 const isSat=()=>settings.basemap==='sat';
+// Arket dekker kartet (helt oppe på mobil): da trengs ingen kartoppdateringer. Settes i main.js.
+const mapCovered=()=>document.body.classList.contains('map-covered');
 function overlayColors(){
   const dark=resolveTheme()==='dark',p=ReisMapStyle.palette(resolveTheme());
   // Over flybilder trengs hvit kontur og hvit tekst med mørk kant, uansett tema.
@@ -38,19 +43,24 @@ function applyOverlayTheme(){
 function setBasemap(mode){
   settings.basemap=mode;saveSettings();
   $('#layerBtn').setAttribute('aria-pressed',String(mode==='sat'));
-  $('#layerBtn').setAttribute('aria-label',mode==='sat'?'Vis kart':'Vis satellitt');
+  $('#layerBtn').setAttribute('aria-label',mode==='sat'?tr('Vis kart'):tr('Vis satellitt'));
   document.body.classList.toggle('sat',mode==='sat');
   if(mapLoaded){ReisMapStyle.applyTheme(map,resolveTheme(),mode==='sat');applyOverlayTheme();}
 }
-$('#layerBtn').onclick=()=>{buzz(8);setBasemap(isSat()?'map':'sat');toast(isSat()?'Satellitt':'Kart');};
+$('#layerBtn').onclick=()=>{buzz(8);setBasemap(isSat()?'map':'sat');toast(isSat()?tr('Satellitt'):tr('Kart'));};
+// Bildene til kartet tegnes på et lerret og leses tilbake med getImageData. willReadFrequently gir et
+// lerret i vanlig minne, så tilbakelesingen ikke må hente pikslene fra skjermkortet hver gang.
+function imageCtx(w,h){const cv=document.createElement('canvas');cv.width=w;cv.height=h;return cv.getContext('2d',{willReadFrequently:true});}
+let measureCtx$=null;
+const measureCtx=()=>measureCtx$||(measureCtx$=imageCtx(1,1));
 // Kjøretøymerke med linjenummeret tegnet inn i bildet, så merker som overlapper legger
 // seg pent oppå hverandre (tekst i eget lag ville blandet tallene). Lages ved behov per
 // transportmiddel + linje; GPS-kjøretøy får en grønn live-prikk.
 function badgeImage(mode,line,gps){
   const color=modeOf(mode).c,label=line||'•',font='800 30px "Schibsted Grotesk", system-ui, sans-serif';
-  const m=document.createElement('canvas').getContext('2d');m.font=font;
+  const m=measureCtx();m.font=font;
   const H=60,W=Math.max(60,Math.ceil(m.measureText(label).width)+34)+(gps?10:0);
-  const cv=document.createElement('canvas');cv.width=W;cv.height=H;const g=cv.getContext('2d');
+  const g=imageCtx(W,H);
   const top=gps?8:4,bw=W-(gps?12:8);
   g.beginPath();g.roundRect(4,top,bw,H-top-4,(H-top-4)/2);g.fillStyle=color;g.fill();g.lineWidth=5;g.strokeStyle='#fff';g.stroke();
   g.font=font;g.fillStyle='#fff';g.textAlign='center';g.textBaseline='middle';g.fillText(label,4+bw/2,top+(H-top-4)/2+1);
@@ -63,13 +73,13 @@ map.on('styleimagemissing',e=>{
 });
 // Retningspil som roterer rundt merket.
 function headingImage(color){
-  const S=112,cv=document.createElement('canvas');cv.width=cv.height=S;const g=cv.getContext('2d');
+  const S=112,g=imageCtx(S,S);
   g.translate(S/2,0);g.beginPath();g.moveTo(0,4);g.lineTo(13,22);g.lineTo(-13,22);g.closePath();
   g.lineJoin='round';g.lineWidth=5;g.strokeStyle='#fff';g.stroke();g.fillStyle=color;g.fill();
   return g.getImageData(0,0,S,S);
 }
 function vehicleImage(color,est=false){
-  const s=56,cv=document.createElement('canvas');cv.width=cv.height=s;const g=cv.getContext('2d');
+  const s=56,g=imageCtx(s,s);
   g.translate(s/2,s/2);
   if(est){g.beginPath();g.arc(0,0,25,0,Math.PI*2);g.setLineDash([5,4]);g.lineWidth=2.5;g.strokeStyle=color;g.stroke();g.setLineDash([]);}
   g.beginPath();g.moveTo(0,-21);g.lineTo(17,19);g.lineTo(0,10);g.lineTo(-17,19);g.closePath();
@@ -172,10 +182,10 @@ map.on('load',()=>{
 
   map.on('click','route-stop-minor',e=>{const p=e.features[0]?.properties;if(!p)return;
     new maplibregl.Popup({offset:8,closeButton:false}).setLngLat(e.lngLat)
-      .setHTML(`<b>${esc(p.name)}</b><br><span style="color:var(--ink-3)">${esc(p.kind)}${p.time?' · kl. '+fmtT(p.time):''}</span>`).addTo(map);});
+      .setHTML(stopPopup(p)).addTo(map);});
   map.on('click','route-stop',e=>{const p=e.features[0]?.properties;if(!p)return;
     new maplibregl.Popup({offset:10,closeButton:false}).setLngLat(e.lngLat)
-      .setHTML(`<b>${esc(p.name)}</b><br><span style="color:var(--ink-3)">${esc(p.kind)}${p.time?' · kl. '+fmtT(p.time):''}</span>`).addTo(map);});
+      .setHTML(stopPopup(p)).addTo(map);});
   ['stops','stop-icons','stops-label','stops-label-major','stop-cards','vehicles','vehicles-dir','route-stop'].forEach(l=>{
     map.on('mouseenter',l,()=>map.getCanvas().style.cursor='pointer');
     map.on('mouseleave',l,()=>map.getCanvas().style.cursor='');});
@@ -191,7 +201,9 @@ map.on('load',()=>{
   if(router.cur.name==='results'||router.cur.name==='trip')drawRoute(state.trips[state.tripIdx]);
 });
 map.on('error',e=>{const msg=e?.error?.message||'';
-  if(/Failed to fetch|NetworkError/i.test(msg))setNetworkState(false,'Kartet laster ikke');else console.warn('Kart:',msg);});
+  if(/Failed to fetch|NetworkError/i.test(msg))setNetworkState(false,tr('Kartet laster ikke'));else console.warn('Kart:',msg);});
+// Holdeplass på valgt rute eller tur: navn, hva slags stopp og klokkeslett.
+const stopPopup=p=>`<b>${esc(p.name)}</b><br><span style="color:var(--ink-3)">${esc(tr(p.kind))}${p.time?' · '+tr('kl. {t}',{t:fmtT(p.time)}):''}</span>`;
 
 // Følg-modus og kompass
 function setFollow(on){state.follow=on;$('#locateBtn').setAttribute('aria-pressed',String(on));}
@@ -200,7 +212,7 @@ map.on('rotate',()=>{const b=map.getBearing();$('#compassBtn').hidden=Math.abs(b
   $('#compassIcon').style.transform=`rotate(${-b}deg)`;});
 $('#compassBtn').onclick=()=>{buzz(6);map.easeTo({bearing:0,duration:reduceMotion.matches?0:400});};
 $('#locateBtn').onclick=()=>{buzz(8);startCompass();
-  if(!state.pos){requestGeoOnce();toast('Henter posisjonen din…');return;}
+  if(!state.pos){requestGeoOnce();toast(tr('Henter posisjonen din…'));return;}
   setFollow(true);
   map.easeTo({center:[state.pos[1],state.pos[0]],zoom:Math.max(map.getZoom(),16),duration:reduceMotion.matches?0:700});};
 
@@ -215,11 +227,11 @@ let pickPopup=null;
 function showPick(ll){
   pickPopup?.remove();
   const el=document.createElement('div');el.className='pick';
-  el.innerHTML='<b>Bruk dette punktet</b><div class="row"><button type="button" data-pick="from">Fra her</button><button type="button" class="to" data-pick="to">Til her</button></div>';
+  el.innerHTML=`<b>${tr('Bruk dette punktet')}</b><div class="row"><button type="button" data-pick="from">${tr('Fra her')}</button><button type="button" class="to" data-pick="to">${tr('Til her')}</button></div>`;
   pickPopup=new maplibregl.Popup({offset:12,closeButton:false,maxWidth:'260px'}).setLngLat(ll).setDOMContent(el).addTo(map);
   el.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{
     buzz(8);pickPopup.remove();
-    const place={name:'Punkt på kartet',lat:ll.lat,lon:ll.lng};
+    const place={name:tr('Punkt på kartet'),lat:ll.lat,lon:ll.lng,pin:true};
     if(b.dataset.pick==='from')state.fromSel=place;else state.dest=place;
     if(state.dest&&(state.fromSel||state.pos))startTripSearch();
     else router.go('search',{focus:b.dataset.pick==='from'?'to':'from'});
@@ -227,14 +239,19 @@ function showPick(ll){
 }
 
 // Posisjonsmarkør, start/mål og byttenumre er DOM-markører; alt annet er kartlag.
+// MapLibre kaller alle markører «Map marker» når de legges på kartet: gi dem et navn som sier hva de er.
+function nameMarker(m,label){
+  const el=m.getElement();if(el.tagName!=='BUTTON')el.setAttribute('role','img');
+  el.setAttribute('aria-label',label);return m;
+}
 const meEl=document.createElement('div');meEl.className='me';
 meEl.innerHTML='<div class="halo"></div><div class="cone"></div><div class="core"></div>';
 const meMarker=new maplibregl.Marker({element:meEl,rotationAlignment:'map'});
 let pinMarkers=[];
 function clearPins(){pinMarkers.forEach(m=>m.remove());pinMarkers=[];}
-function addPin(lat,lon,html,cls){
+function addPin(lat,lon,html,label){
   const el=document.createElement('div');el.innerHTML=html;const node=el.firstElementChild;
-  const m=new maplibregl.Marker({element:node}).setLngLat([lon,lat]).addTo(map);pinMarkers.push(m);return m;
+  const m=nameMarker(new maplibregl.Marker({element:node}).setLngLat([lon,lat]).addTo(map),label);pinMarkers.push(m);return m;
 }
 function renderAcc(){
   if(!state.pos||!state.acc){setData('acc',EMPTY);return;}
@@ -248,7 +265,7 @@ function renderAcc(){
    24-enhets rutenett (samme som appens ikoner). Favoritter får en gul stjerne. */
 const STOP_ICON_ZOOM=14;
 function stopIcon(mode,fav){
-  const S=64,cv=document.createElement('canvas');cv.width=cv.height=S;const g=cv.getContext('2d');
+  const S=64,g=imageCtx(S,S);
   g.shadowColor='rgba(0,0,0,.28)';g.shadowBlur=5;g.shadowOffsetY=1.5;
   g.beginPath();g.roundRect(8,6,48,48,13);g.fillStyle='#fff';g.fill();g.shadowColor='transparent';
   g.beginPath();g.roundRect(11,9,42,42,10.5);g.fillStyle=modeOf(mode).c;g.fill();
@@ -282,21 +299,28 @@ function stopIcon(mode,fav){
    så et kort tegnes på nytt bare når minuttene endrer seg. */
 const CARD_ZOOM=15.3;
 const cardSpecs=new Map();
-function cardKey(s){
+// Kort lages bare for holdeplasser i utsnittet (med litt margin for små flytt). Kartet ville ellers
+// bedt om bilder for alle holdeplasser i flisene rundt, og tegnet dem på nytt hvert minutt.
+function cardBounds(){
   if(!mapLoaded||map.getZoom()<CARD_ZOOM)return null;
+  const b=map.getBounds(),dx=(b.getEast()-b.getWest())*.15,dy=(b.getNorth()-b.getSouth())*.15;
+  return{w:b.getWest()-dx,e:b.getEast()+dx,s:b.getSouth()-dy,n:b.getNorth()+dy};
+}
+function cardKey(s,vb){
+  if(!vb||s.lon<vb.w||s.lon>vb.e||s.lat<vb.s||s.lat>vb.n)return null;
   const entry=state.deps.get(s.id);if(!entry)return null;
-  const items=upcoming(s.id).slice(0,3).map(r=>{const m=minUntil(r.exp);return{pub:r.pub,mode:r.mode,t:m<=0?'nå':m<60?String(m):fmtT(r.exp),rt:r.rt,now:m<=0,sj:r.sj};});
+  const items=upcoming(s.id).slice(0,3).map(r=>{const m=minUntil(r.exp);return{pub:r.pub,mode:r.mode,t:m<=0?tr('nå'):m<60?String(m):fmtT(r.exp),rt:r.rt,now:m<=0,sj:r.sj};});
   if(!items.length)return null; // uten avganger: bare prikk og navn
   const theme=isSat()?'sat':resolveTheme();
-  const key=`sc|${theme}|${s.id}|${items.map(i=>i.pub+':'+i.t+(i.rt?'*':'')).join(',')}`;
+  const key=`sc|${theme}|${I18N.lang}|${s.id}|${items.map(i=>i.pub+':'+i.t+(i.rt?'*':'')).join(',')}`;
   if(!cardSpecs.has(key))cardSpecs.set(key,{id:s.id,name:s.name,items,theme});
   return key;
 }
 function cardImage(spec){
   const dark=spec.theme==='dark',X=2,font=(w,px)=>`${w} ${px*X}px "Schibsted Grotesk", system-ui, sans-serif`;
-  const col=dark?{bg:'#171C20',line:'rgba(255,255,255,.10)',name:'#8D969B',text:'#EEECE6',sub:'#8D969B'}:
-    {bg:'#FFFFFF',line:'rgba(20,25,28,.10)',name:'#687175',text:'#14191C',sub:'#687175'};
-  const m=document.createElement('canvas').getContext('2d');
+  const col=dark?{bg:'#171C20',line:'rgba(255,255,255,.10)',name:'#9AA2A7',text:'#EEECE6',sub:'#9AA2A7'}:
+    {bg:'#FFFFFF',line:'rgba(20,25,28,.10)',name:'#5B6468',text:'#14191C',sub:'#5B6468'};
+  const m=measureCtx();
   const PAD=8*X,GAP=8*X,BH=18*X,M=6*X,TIP=6*X;
   // mål opp innholdet
   m.font=font(700,11);let name=spec.name;const maxName=170*X;
@@ -307,17 +331,20 @@ function cardImage(spec){
     m.font=font(750,12.5);let tw=m.measureText(i.t).width+(i.now?10*X:0)+(i.rt?9*X:0);
     const unit=!i.now&&/^\d+$/.test(i.t);let uw=0;if(unit){m.font=font(600,9.5);uw=m.measureText('min').width+2*X;}
     return{...i,bw,tw,uw,unit,w:bw+5*X+tw+uw};});
-  const chipsW=chips.length?chips.reduce((a,c)=>a+c.w,0)+GAP*(chips.length-1):(m.font=font(500,11),m.measureText('Ingen avganger').width);
+  const chipsW=chips.length?chips.reduce((a,c)=>a+c.w,0)+GAP*(chips.length-1):(m.font=font(500,11),m.measureText(tr('Ingen avganger')).width);
   const W=Math.ceil(Math.max(nameW,chipsW)+PAD*2),H=PAD+13*X+5*X+BH+PAD;
-  const cv=document.createElement('canvas');cv.width=W+M*2;cv.height=H+TIP+M*2;const g=cv.getContext('2d');
-  // kort med pil ned mot holdeplassen
-  g.shadowColor='rgba(0,0,0,.18)';g.shadowBlur=6*X;g.shadowOffsetY=1*X;
-  g.beginPath();g.roundRect(M,M,W,H,10*X);g.moveTo(M+W/2-TIP,M+H);g.lineTo(M+W/2,M+H+TIP);g.lineTo(M+W/2+TIP,M+H);g.closePath();
-  g.fillStyle=col.bg;g.fill();g.shadowColor='transparent';g.lineWidth=1*X;g.strokeStyle=col.line;g.stroke();
+  const g=imageCtx(W+M*2,H+TIP+M*2),cv=g.canvas;
+  // Kort med pil ned mot holdeplassen. Skyggen er to tynne lag under kortet i stedet for uskarphet
+  // (shadowBlur), som er det dyreste et lerret tegner – og kortene tegnes på nytt hvert minutt.
+  const shape=(dy,grow)=>{g.beginPath();g.roundRect(M-grow,M+dy-grow,W+grow*2,H+grow*2,10*X+grow);
+    g.moveTo(M+W/2-TIP-grow,M+dy+H+grow);g.lineTo(M+W/2,M+dy+H+TIP+grow*1.4);g.lineTo(M+W/2+TIP+grow,M+dy+H+grow);g.closePath();};
+  g.fillStyle='rgba(0,0,0,.06)';shape(1.5*X,1.5*X);g.fill();
+  g.fillStyle='rgba(0,0,0,.09)';shape(1*X,.5*X);g.fill();
+  shape(0,0);g.fillStyle=col.bg;g.fill();g.lineWidth=1*X;g.strokeStyle=col.line;g.stroke();
   g.textBaseline='middle';
   g.font=font(700,11);g.fillStyle=col.name;g.fillText(name,M+PAD,M+PAD+6.5*X);
   let x=M+PAD;const cy=M+PAD+13*X+5*X+BH/2;
-  if(!chips.length){g.font=font(500,11);g.fillStyle=col.sub;g.fillText('Ingen avganger',x,cy);}
+  if(!chips.length){g.font=font(500,11);g.fillStyle=col.sub;g.fillText(tr('Ingen avganger'),x,cy);}
   spec.w=cv.width/X;spec.hits=[]; // for trykk: hvor hver avgang ligger i bildet (CSS-px fra venstre kant)
   chips.forEach(c=>{const x0=x;
     g.beginPath();g.roundRect(x,cy-BH/2,c.bw,BH,5*X);g.fillStyle=modeOf(c.mode).c;g.fill();
@@ -349,7 +376,7 @@ let cardMode=false;
 map.on('zoom',()=>{const on=map.getZoom()>=CARD_ZOOM;if(on!==cardMode){cardMode=on;renderStopsLayer();}});
 let viewDepsBusy=false,viewDepsAt=0;
 async function loadViewDeps(force=false){
-  if(!mapLoaded||map.getZoom()<CARD_ZOOM-0.5||!['home','stop'].includes(router.cur.name))return;
+  if(!mapLoaded||mapCovered()||map.getZoom()<CARD_ZOOM-0.5||!['home','stop'].includes(router.cur.name))return;
   if(viewDepsBusy||(!force&&Date.now()-viewDepsAt<25000))return;
   viewDepsBusy=true;viewDepsAt=Date.now();
   try{
@@ -370,20 +397,20 @@ async function loadViewDeps(force=false){
 }
 
 // Rangering for navn på kartet: favoritter, så tog, T-bane, trikk/båt, så buss.
-function stopProps(s){
+function stopProps(s,vb){
   const fav=favs.some(f=>f.id===s.id),m=s.modes||[];
   const rank=fav?0:m.includes('rail')?1:m.includes('metro')?2:(m.includes('tram')||m.includes('water'))?3:4;
   const icon=m.includes('rail')?'rail':m.includes('metro')?'metro':m.includes('tram')?'tram':m.includes('water')?'water':'bus';
   const p={id:s.id,name:s.name,fav,rank,major:rank<4,icon,color:modeOf(icon).c};
-  const card=cardKey(s);if(card)p.card=card;
+  const card=cardKey(s,vb);if(card)p.card=card;
   return p;
 }
 function renderStopsLayer(){
   const all=new Map();
   for(const s of state.viewStops.values())all.set(s.id,s);
   for(const s of [...state.nearby,...favs])all.set(s.id,{...s,modes:s.modes||all.get(s.id)?.modes}); // behold transportmiddel fra utsnittet
-  const show=!['results','trip','journey'].includes(router.cur.name);
-  const feats=show?[...all.values()].map(s=>({type:'Feature',geometry:{type:'Point',coordinates:[+s.lon,+s.lat]},properties:stopProps(s)})):[];
+  const show=!['results','trip','journey'].includes(router.cur.name),vb=cardBounds();
+  const feats=show?[...all.values()].map(s=>({type:'Feature',geometry:{type:'Point',coordinates:[+s.lon,+s.lat]},properties:stopProps(s,vb)})):[];
   setData('stops',fc(feats));
   pruneCards(new Set(feats.map(f=>f.properties.card).filter(Boolean)));
 }

@@ -126,6 +126,15 @@ test('ringState: farge etter hastverk, klokkeslett ved lange ventetider',()=>{
   assert.equal(C.ringState(12,30,null,1).cls,'go','hastverk kan styres av gangtid, ikke bare tallet');
   assert.equal(C.ringState(4.5,30,null).f,.15,'ringen tømmes jevnt, ikke ett minutt av gangen');
   assert.equal(C.ringState(-2,30,null).f,0);
-  const far=C.ringState(120,30,'20:00');assert.equal(far.txt,'20:00');assert.equal(far.f,1);
-  assert.equal(C.ringWord('gå om',0),'gå');assert.equal(C.ringWord('gå av om',3),'gå av om');
+  const far=C.ringState(120,30,'20:00',120,'Gå om');
+  assert.equal(far.txt,'20:00');assert.equal(far.f,1);assert.equal(far.label,'Gå kl. 20:00');assert.equal(far.lab,'gå kl.');
+  const soon=C.ringState(5,30,null,5,'Går om');assert.equal(soon.label,'Går om 5 min');assert.equal(soon.lab,'går om');
+});
+
+test('ringState ved null: verbet står i ringen med «nå» under, så den leses «Gå nå»',()=>{
+  const go=C.ringState(0,30,null,0,'Gå om');
+  assert.deepEqual([go.txt,go.unit,go.lab,go.label,go.zero],['Gå','nå','','Gå nå',true]);
+  const off=C.ringState(-1,20,null,-1,'Gå av om');assert.equal(off.txt,'Gå av');assert.equal(off.long,true);
+  const end=C.ringState(0,20,null,0,'Endestopp om');
+  assert.equal(end.txt,'nå','ord som er for lange for ringen, står ikke i den');assert.equal(end.label,'Endestopp nå');
 });

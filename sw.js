@@ -1,7 +1,7 @@
-const CACHE='reis-v21';
+const CACHE='reis-v22';
 const ASSETS=[
   './','./index.html','./manifest.webmanifest','./css/app.css','./js/mapstyle.js',
-  './js/core.js','./js/base.js','./js/map.js','./js/sheet.js','./js/components.js','./js/floatcard.js','./js/pages.js','./js/data.js','./js/live.js','./js/main.js',
+  './js/i18n.js','./js/core.js','./js/base.js','./js/map.js','./js/sheet.js','./js/components.js','./js/floatcard.js','./js/pages.js','./js/data.js','./js/live.js','./js/main.js',
   './vendor/fonts/schibsted-grotesk-latin.woff2',
   './vendor/maplibre/maplibre-gl.js','./vendor/maplibre/maplibre-gl.css',
   './icons/mark.svg','./icons/icon-192.png','./icons/icon-512.png',
@@ -53,4 +53,11 @@ self.addEventListener('fetch',e=>{
       return r;
     }).catch(()=>caches.match(req).then(h=>h||(req.mode==='navigate'?caches.match('./index.html'):Response.error()))));
   }
+});
+
+// Trykk på varselet «Gå nå»: vis appen som allerede er åpen, ellers åpne den.
+self.addEventListener('notificationclick',e=>{
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({type:'window',includeUncontrolled:true}).then(cs=>{
+    const c=cs.find(x=>'focus' in x);return c?c.focus():self.clients.openWindow('./');}));
 });

@@ -7,16 +7,19 @@
    (funksjonene blir globale) og som CommonJS-modul i Node, der den
    testes med node:test (tests/core.test.js).
    ===================================================================== */
+// I Node (testene) hentes språkfunksjonene fra i18n.js; i nettleseren er de allerede globale.
+if(typeof tr!=='function'&&typeof module==='object')Object.assign(globalThis,module.require('./i18n.js'));
 // Innstillinger kjernen trenger; appen setter gangfarten fra brukerens valg.
 const coreCfg={walkKmh:4.5};
 
 /* ---------- Tekst og tid ---------- */
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fmtT=ts=>new Date(ts).toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit'});
+const fmtT=ts=>new Date(ts).toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
 const minUntil=ts=>Math.round((new Date(ts).getTime()-Date.now())/60000);
 const plural=(n,one,many)=>n===1?one:many;
-const changesText=n=>n===0?'Direkte':`${n} ${plural(n,'bytte','bytter')}`;
-const fmtDist=m=>m<1000?`${Math.round(m/10)*10} m`:`${(m/1000).toFixed(1).replace('.',',')} km`;
+const changesText=n=>n===0?tr('Direkte'):tn(n,'{n} bytte','{n} bytter');
+const fmtDec=(x,d=1)=>{const s=x.toFixed(d);return I18N.lang==='en'?s:s.replace('.',',');};
+const fmtDist=m=>m<1000?`${Math.round(m/10)*10} m`:`${fmtDec(m/1000)} km`;
 // Entur bruker «Origin»/«Destination» for koordinatpunkter; vis brukerens egne navn.
 const placeName=(p,fallback)=>{const n=p?.name;return(!n||/^(origin|destination)$/i.test(n))?fallback:n;};
 
@@ -34,10 +37,10 @@ function reachStatus(distance,departure,now=Date.now()){
   const remaining=(+departure-now)/60000;
   if(remaining<0)return null;
   const margin=remaining-walkMin(distance)-2;
-  if(margin<-3)return{label:'Rekker trolig ikke',cls:'caution'};
-  if(margin<0)return{label:'Knapt',cls:'caution'};
-  if(margin<3)return{label:'Gå nå',cls:'now'};
-  if(margin<11)return{label:`Gå om ${Math.floor(margin)} min`,cls:'soon'};
+  if(margin<-3)return{label:tr('Rekker trolig ikke'),cls:'caution'};
+  if(margin<0)return{label:tr('Knapt'),cls:'caution'};
+  if(margin<3)return{label:tr('Gå nå'),cls:'now'};
+  if(margin<11)return{label:tr('Gå om {n} min',{n:Math.floor(margin)}),cls:'soon'};
   return null;
 }
 
@@ -147,16 +150,27 @@ function layoutTimeline(rows,{now=Date.now(),maxLanes=6,gapPct=8}={}){
 }
 
 /* ---------- Nedtellingsring ---------- */
-// Nedtellingsring: tallet i midten, ringen tømmes mot null og skifter farge når det haster.
-// Et lite ord under ringen sier hva tallet betyr («gå om», «går om», «gå av om»).
+// Tallet står i midten, ringen tømmes mot null og skifter farge når det haster. Ordet under ringen
+// sier hva tallet betyr («gå om», «går om», «gå av om»). Ved null flyttes verbet inn i ringen med
+// «nå» under, så ringen leses «Gå nå». Ord som er for lange for ringen, står ikke der; da står «nå».
+// word: nøkkelen for ordet («Gå om» osv.); teksten oversettes her.
 // urg: minuttene som bestemmer fargen, når det ikke er selve tallet (f.eks. avgang minus gangtid).
-function ringState(min,win,clock,urg=min){
-  const m=Math.max(0,Math.round(min)),u=Math.round(urg),big=m>=100&&clock;
-  return{cls:u<=1?'go':u<=5?'soon':'',f:Math.min(1,Math.max(0,min)/win),txt:m<=0?'nå':big?clock:String(m),unit:m>0&&!big?'min':'',clock:!!big,
-    label:m<=0?'nå':big?`kl. ${clock}`:`${m} min`};
+const RING_WORDS={
+  'Gå om':{at:'Gå kl. {t}',now:'Gå nå',verb:'Gå'},
+  'Går om':{at:'Går kl. {t}',now:'Går nå',verb:'Går'},
+  'Gå av om':{at:'Gå av kl. {t}',now:'Gå av nå',verb:'Gå av'},
+  'Starter om':{at:'Starter kl. {t}',now:'Starter nå',verb:''},
+  'Endestopp om':{at:'Endestopp kl. {t}',now:'Endestopp nå',verb:''}
+};
+function ringState(min,win,clock,urg=min,word=''){
+  const m=Math.max(0,Math.round(min)),u=Math.round(urg),W=RING_WORDS[word];
+  const r={cls:u<=1?'go':u<=5?'soon':'',f:Math.min(1,Math.max(0,min)/win),clock:false,zero:false,long:false};
+  if(m<=0){const verb=W?.verb?tr(W.verb):'';
+    return{...r,zero:!!verb,long:verb.length>3,txt:verb||tr('nå'),unit:verb?tr('nå'):'',lab:'',label:W?tr(W.now):tr('nå')};}
+  if(m>=100&&clock)
+    return{...r,clock:true,txt:clock,unit:'',lab:W?tr(W.at,{t:''}).trim().toLowerCase():'',label:W?tr(W.at,{t:clock}):tr('kl. {t}',{t:clock})};
+  return{...r,txt:String(m),unit:tr('min'),lab:word?tr(word).toLowerCase():'',label:`${word?tr(word)+' ':''}${m} ${tr('min')}`};
 }
-// «gå om» + «nå» leses «gå nå»: ved null faller «om» bort.
-const ringWord=(lab,m)=>!lab?'':Math.round(m)<=0?lab.replace(/ om$/,''):lab;
 
 /* ---------- Trafikkmeldinger ---------- */
 // Hendelser (ReportType «incident») påvirker reisen nå; «general» er planlagte endringer som
@@ -172,6 +186,6 @@ function alertLevel(reportType,severity,summary){
   return sev==='high'||SEVERE_RX.test(summary||'')?'high':'med';
 }
 
-if(typeof module==='object'&&module.exports)module.exports={coreCfg,esc,fmtT,minUntil,plural,changesText,fmtDist,placeName,
+if(typeof module==='object'&&module.exports)module.exports={coreCfg,esc,fmtT,minUntil,plural,changesText,fmtDec,fmtDist,placeName,
   geoDist,walkMin,NEAR_WALK_MAX,nearWalk,reachStatus,parseCalls,decodePoly,mPerDeg,prepPath,projectStops,pointAt,bearingOf,
-  ts,depT,arrT,estimate,callPos,nearestCallIdx,layoutTimeline,ringState,ringWord,SEV_RANK,SEVERE_RX,sevClass,alertLevel};
+  ts,depT,arrT,estimate,callPos,nearestCallIdx,layoutTimeline,RING_WORDS,ringState,SEV_RANK,SEVERE_RX,sevClass,alertLevel};
